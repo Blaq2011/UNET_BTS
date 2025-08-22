@@ -44,14 +44,16 @@ UNET_BTS
     b. Install requirements
         - pip install -r requirements.txt
 
-    c. Get Dataset
+    c. Create directories and folders ingnored by git (see project structure).
+   
+    d. Get Dataset
         - Download the BraTS 2020 dataset from: https://www.kaggle.com/datasets/awsaf49/brats20-dataset-training-validation?resource=download-directory 
         - Extract dataset in data/raw/.
         - Preprocessed 2D slices are saved automatically in data/processed/
 
 
-4. Usage
-    - Open the main notebook (demo.ipynb) and run all cells
+5. Usage
+    - Open the main notebook (demo.ipynb) and run all cells <-- TO BE CHECKED
 
 The notebook includes:
 <!-- Data preprocessing (2D slices, normalization, augmentation)
