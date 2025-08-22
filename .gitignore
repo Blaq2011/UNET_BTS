@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data
+data/raw/
+data/processed/
+*.nii
+*.nii.gz
+
+# Models & Checkpoints
+models/
+*.pth
+*.pt
+
+# Results
+results/metrics.csv
+results/sample_predictions/
+*.png
+*.jpg
+
+# OS-specific
+.DS_Store
+Thumbs.db

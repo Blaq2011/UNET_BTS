@@ -1,0 +1,15 @@
+# Ensure Jupyter notebooks render properly on GitHub
+*.ipynb diff=jupyternotebook
+
+# Handle text files with consistent line endings (Windows/Linux/Mac)
+* text=auto eol=lf
+
+# Treat common binary files as binary (no diffs)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.nii binary
+*.nii.gz binary
+*.pth binary
+*.pt binary
