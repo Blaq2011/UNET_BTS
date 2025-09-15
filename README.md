@@ -11,7 +11,19 @@ INITIAL DOCX
 2. Project Structure
 
 UNET_BTS
+UNET_BTS
 │
+├── demo.ipynb              # Main notebook: data prep, training, evaluation, visualization
+├── README.md               # Project overview, instructions, results
+├── requirements.txt        # Python dependencies
+├── .gitignore              # Ignore large files, checkpoints, OS junk
+├── .gitattributes          # Git LFS, notebook rendering, binary files
+│
+├── data/                   # Dataset (BraTS 2020)
+│   ├── raw/                # Original MRI scans (ignored by git)
+│   └── processed/          # Preprocessed 2D slices (ignored by git)
+│
+├── models/                 # Trained checkpoints (ignored by git)
 ├── demo.ipynb              # Main notebook: data prep, training, evaluation, visualization
 ├── README.md               # Project overview, instructions, results
 ├── requirements.txt        # Python dependencies
@@ -29,11 +41,14 @@ UNET_BTS
 ├── results/                # Metrics and visualizations (ignored by git)
 │   ├── metrics.csv
 │   └── sample_predictions/
+├── results/                # Metrics and visualizations (ignored by git)
+│   ├── metrics.csv
+│   └── sample_predictions/
 │
 └── utils/                  # Optional helper scripts
     ├── unet.py             # U-Net model definition
     ├── data_loader.py      # Dataset + preprocessing functions
-    └── metrics.py          # Dice, IoU, Hausdorff functions
+    └── metrics.py          # Dice, HD95 <-- to be checked
 
 
 3. Setup
@@ -44,14 +59,16 @@ UNET_BTS
     b. Install requirements
         - pip install -r requirements.txt
 
-    c. Get Dataset
+    c. Create directories and folders ignored by git (see project structure).
+   
+    d. Get Dataset
         - Download the BraTS 2020 dataset from: https://www.kaggle.com/datasets/awsaf49/brats20-dataset-training-validation?resource=download-directory 
         - Extract dataset in data/raw/.
         - Preprocessed 2D slices are saved automatically in data/processed/
 
 
 4. Usage
-    - Open the main notebook (demo.ipynb) and run all cells
+    - Open the main notebook (demo.ipynb) and run all cells <-- TO BE CHECKED
 
 The notebook includes:
 <!-- Data preprocessing (2D slices, normalization, augmentation)
