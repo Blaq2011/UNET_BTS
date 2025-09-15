@@ -10,26 +10,31 @@ INITIAL DOCX
 
 2. Project Structure
 
-brain-tumor-segmentation-unet/
+UNET_BTS
 │
-├── demo.ipynb          # Main notebook: preprocessing, training, evaluation, results
-├── README.md           # Project overview and instructions
-├── requirements.txt    # Project dependencies
+├── demo.ipynb              # Main notebook: data prep, training, evaluation, visualization
+├── README.md               # Project overview, instructions, results
+├── requirements.txt        # Python dependencies
+├── .gitignore              # Ignore large files, checkpoints, OS junk
+├── .gitattributes          # Git LFS, notebook rendering, binary files
 │
-├── models/             # Trained model checkpoints (gitignored)
+├── data/                   # Dataset (BraTS 2020)
+│   ├── raw/                # Original MRI scans (ignored by git)
+│   └── processed/          # Preprocessed 2D slices (ignored by git)
+│
+├── models/                 # Trained checkpoints (ignored by git)
 │   ├── unet_baseline.pth
 │   └── unet_optimized.pth
 │
-├── results/            # Metrics and qualitative results
-│   ├── sample_predictions/
-│   └── metrics.csv
+├── results/                # Metrics and visualizations (ignored by git)
+│   ├── metrics.csv
+│   └── sample_predictions/
 │
-├── utils/              # Helper scripts
-│   ├── unet.py         # U-Net implementation
-│   ├── data_loader.py  # Dataset preprocessing + loader
-│   └── metrics.py      # Dice, other metrics
-│
-└── .gitignore
+└── utils/                  # Optional helper scripts
+    ├── unet.py             # U-Net model definition
+    ├── data_loader.py      # Dataset + preprocessing functions
+    └── metrics.py          # Dice, IoU, Hausdorff functions
+
 
 3. Setup
 
