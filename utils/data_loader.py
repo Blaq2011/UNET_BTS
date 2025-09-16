@@ -66,8 +66,7 @@ def load_nifti(filepath):
 def clip_intensity(img, lower=0.5, upper=99.5):
     """Clip intensities to remove outliers"""
     low, high = np.percentile(img, [lower, upper])
-    img = np.clip(img, low, high)
-    return img
+    return np.clip(img, low, high)
 
 
 def normalize(img):
@@ -79,6 +78,19 @@ def normalize(img):
     std = np.std(img[mask])
     return (img - mean) / (std + 1e-8)
 
+def minmax_normalize(img):
+    """Min-max normalization: scale nonzero foreground to [0,1]."""
+    nz = img > 0
+    if nz.sum() == 0:
+        return img
+    vmin = img[nz].min()
+    vmax = img[nz].max()
+    if abs(vmax - vmin) < 1e-6:   # avoid div by zero
+        return img
+    out = img.copy()
+    out[nz] = (out[nz] - vmin) / (vmax - vmin)
+    return out
+  
 
 def resample_to_shape(img, target_shape=(128, 128, 128), mode="trilinear"):
     """
@@ -103,17 +115,22 @@ def resample_to_shape(img, target_shape=(128, 128, 128), mode="trilinear"):
     else:
         raise ValueError(f"Unsupported img shape {img.shape}, expected 3D or 4D.")
 
+def get_foreground(mods,eps=1e-6):
+    """Union of non-zero voxels across modalities -> (H,W,D)bool."""
+    stack = np.stack(mods,axis=0)
+    return (np.abs(stack)>eps).any(axis=0)
 
-def crop_to_mask(img, mask, margin=10):
-    """Crop around the nonzero region of mask (or brain)"""
+def mask_slices(mask, margin=10):
+    """Compute a single 3D slice tuple for cropping with safety margin."""
     coords = np.array(np.nonzero(mask))
-    if coords.size == 0:  # empty mask fallback
-        return img, mask
-    min_coords = np.maximum(coords.min(axis=1) - margin, 0)
-    max_coords = np.minimum(coords.max(axis=1) + margin, img.shape)
-    
-    slices = [slice(min_coords[i], max_coords[i]) for i in range(3)]
-    return img[slices[0], slices[1], slices[2]], mask[slices[0], slices[1], slices[2]]
+    if coords.size == 0:
+        return tuple(slice(0, s) for s in mask.shape)
+    shape = np.array(mask.shape, dtype=int)
+    mins = coords.min(axis=1) - margin
+    maxs = coords.max(axis=1) + 1 + margin  # +1 to include max index
+    mins = np.maximum(mins, 0)
+    maxs = np.minimum(maxs, shape)
+    return tuple(slice(int(mins[i]), int(maxs[i])) for i in range(3))
 
 
 #####%%%%%%%%%%%%%%%%%%%%%%
@@ -133,21 +150,26 @@ def one_hot_encode(mask, num_classes=4):
 # BraTS Dataset
 # ------------------------------------
 class BraTSDataset(Dataset):
-    def __init__(self, image_paths, mask_paths, 
+    def __init__(self, image_paths, mask_paths, normalization, 
                  target_shape=(128,128,128), 
                  patch_size=(96,96,96), 
                  augment=True, 
-                 num_classes=4):
+                 num_classes=4,
+                 crop_margin=10,
+                 clip_percentiles=(0.5,99.5)):
         """
         image_paths: list of list, each [flair, t1, t1ce, t2]
         mask_paths: list of segmentation paths
         """
         self.image_paths = image_paths
         self.mask_paths = mask_paths
+        self.normalization = normalization
         self.target_shape = target_shape
         self.patch_size = patch_size
         self.augment = augment
         self.num_classes = num_classes
+        self.crop_margin = crop_margin
+        self.clip_percentiles = clip_percentiles
 
     def __len__(self):
         return len(self.image_paths)
@@ -157,8 +179,6 @@ class BraTSDataset(Dataset):
         modalities = []
         for path in self.image_paths[idx]:
             img_array = load_nifti(path)
-            img_array = clip_intensity(img_array)
-            img_array = normalize(img_array)
             modalities.append(img_array)
 
         # Stack into (C, D, H, W)
@@ -168,16 +188,24 @@ class BraTSDataset(Dataset):
         mask = load_nifti(self.mask_paths[idx])
 
         # --- Crop around tumor/brain ---
-        img_cropped = []
-        for c in range(img.shape[0]):
-            cropped_img, cropped_mask = crop_to_mask(img[c], mask)
-            img_cropped.append(cropped_img)
-        img = np.stack(img_cropped, axis=0)
-        mask = cropped_mask
+        fg = get_foreground(modalities)
+        s  = mask_slices(fg, margin=self.crop_margin)
+        modalities = [m[s] for m in modalities]
+        mask = mask[s]
 
         # --- Resample ---
+        img = np.stack(modalities, axis=0)
         img = resample_to_shape(img, self.target_shape, mode="trilinear")  # (4,D,H,W)
         mask = resample_to_shape(mask, self.target_shape, mode="nearest")  # (D,H,W)
+
+        # --- Clip and normalization for each modality ---
+        low, high= self.clip_percentiles
+        for c in range(img.shape[0]):
+          img[c] = clip_intensity(img[c], low, high)
+          if self.normalization == "zscore":
+                img[c] = normalize(img[c])      
+          elif self.normalization == "minmax":
+                img[c] = minmax_normalize(img[c])
 
         # --- Extract random patch ---
         d, h, w = self.patch_size
