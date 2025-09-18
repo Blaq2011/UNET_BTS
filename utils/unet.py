@@ -34,7 +34,7 @@ class Unet3D(nn.Module):
     self.up1  = nn.ConvTranspose3d(base*2, base,   2, 2)
     self.dec1 = conv_block(base*2,  base)
 
-    self.out = nn.Convd3d(base, out_ch, 1)
+    self.out = nn.Conv3d(base, out_ch, 1)
 
   def forward(self,x):
     e1 = self.enc1(x)
