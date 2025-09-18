@@ -14,7 +14,6 @@ def conv_block(in_ch, out_ch, k=3, p=1):
     nn.LeakyReLU(0.01, inplace = True),
   )
     
-
 class Unet3D(nn.Module):
   def __init__(self, in_ch=4, out_ch=4, base =32):
     super().__init__()
@@ -23,9 +22,9 @@ class Unet3D(nn.Module):
     self.down1 = nn.Conv3d(base, base*2, 2, 2) # stride=2
     self.enc2 = conv_block(base*2, base*2)
     self.down2 = nn.Conv3d(base*2, base*4, 2, 2)
-    self.enc2 = conv_block(base*4, base*4)
+    self.enc3 = conv_block(base*4, base*4)
     self.down3 = nn.Conv3d(base*4, base*8, 2, 2)
-    self.enc3 = conv_block(base*8, base*8)
+    self.enc4 = conv_block(base*8, base*8)
 
     ## Up path
     self.up3  = nn.ConvTranspose3d(base*8, base*4, 2, 2)
@@ -35,9 +34,9 @@ class Unet3D(nn.Module):
     self.up1  = nn.ConvTranspose3d(base*2, base,   2, 2)
     self.dec1 = conv_block(base*2,  base)
 
-    self.out = nn.Convd(base, out_ch, 1)
+    self.out = nn.Convd3d(base, out_ch, 1)
 
-def forward(self,x):
+  def forward(self,x):
     e1 = self.enc1(x)
     e2 = self.enc2(self.down1(e1))
     e3 = self.enc3(self.down2(e2))
