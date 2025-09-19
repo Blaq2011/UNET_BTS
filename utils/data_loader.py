@@ -1,17 +1,15 @@
-import os, glob
+import os, glob, random
 import numpy as np
 import nibabel as nib
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-import random
-
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-
+from sklearn.model_selection import train_test_split
 
 #Function to collect image and mask file paths for our data loader 
-
 def get_brats_filepaths(root_dir):
     """Collect BraTS2020 file paths grouped by patient"""
     patient_dirs = sorted(glob.glob(os.path.join(root_dir, "BraTS20_Training_*")))
@@ -38,35 +36,35 @@ def get_brats_filepaths(root_dir):
 
     return image_paths, mask_paths
 
+##Splitting data into train and val sets (critical before caching!) 
+def split_brats_dataset(image_paths, mask_paths, val_size=0.2, seed=42):
+    """
+    Split BraTS training data into train/val sets (patient-wise).
+    """
+    train_imgs, val_imgs, train_masks, val_masks = train_test_split(
+        image_paths, mask_paths,
+        test_size=val_size,
+        random_state=seed,
+        shuffle=True
+    )
+    return train_imgs, val_imgs, train_masks, val_masks
 
 
 
-
-
-
-
-
-
-#####%%%%%%%%%%%%%%%%%%%%%%
-# ------------------------------------
 # Load Images and Masks
-# ------------------------------------
 def load_nifti(filepath):
     """Load NIfTI MRI file as numpy array"""
     img = nib.load(filepath)
     return img.get_fdata().astype(np.float32)
-#####%%%%%%%%%%%%%%%%%%%%%%
 
 
 
-
-# ------------------------------------
-# Preprocessing utilities
-# ------------------------------------
+###=====================Preprocessing utilities =======================
 def clip_intensity(img, lower=0.5, upper=99.5):
     """Clip intensities to remove outliers"""
     low, high = np.percentile(img, [lower, upper])
-    return np.clip(img, low, high)
+    img = np.clip(img, low, high)
+    return img
 
 
 def normalize(img):
@@ -78,19 +76,6 @@ def normalize(img):
     std = np.std(img[mask])
     return (img - mean) / (std + 1e-8)
 
-def minmax_normalize(img):
-    """Min-max normalization: scale nonzero foreground to [0,1]."""
-    nz = img > 0
-    if nz.sum() == 0:
-        return img
-    vmin = img[nz].min()
-    vmax = img[nz].max()
-    if abs(vmax - vmin) < 1e-6:   # avoid div by zero
-        return img
-    out = img.copy()
-    out[nz] = (out[nz] - vmin) / (vmax - vmin)
-    return out
-  
 
 def resample_to_shape(img, target_shape=(128, 128, 128), mode="trilinear"):
     """
@@ -115,25 +100,19 @@ def resample_to_shape(img, target_shape=(128, 128, 128), mode="trilinear"):
     else:
         raise ValueError(f"Unsupported img shape {img.shape}, expected 3D or 4D.")
 
-def get_foreground(mods,eps=1e-6):
-    """Union of non-zero voxels across modalities -> (H,W,D)bool."""
-    stack = np.stack(mods,axis=0)
-    return (np.abs(stack)>eps).any(axis=0)
 
-def mask_slices(mask, margin=10):
-    """Compute a single 3D slice tuple for cropping with safety margin."""
+def crop_to_mask(img, mask, margin=10):
+    """Crop around the nonzero region of mask (or brain)"""
     coords = np.array(np.nonzero(mask))
-    if coords.size == 0:
-        return tuple(slice(0, s) for s in mask.shape)
-    shape = np.array(mask.shape, dtype=int)
-    mins = coords.min(axis=1) - margin
-    maxs = coords.max(axis=1) + 1 + margin  # +1 to include max index
-    mins = np.maximum(mins, 0)
-    maxs = np.minimum(maxs, shape)
-    return tuple(slice(int(mins[i]), int(maxs[i])) for i in range(3))
+    if coords.size == 0:  # empty mask fallback
+        return img, mask
+    min_coords = np.maximum(coords.min(axis=1) - margin, 0)
+    max_coords = np.minimum(coords.max(axis=1) + margin, img.shape)
+    
+    slices = [slice(min_coords[i], max_coords[i]) for i in range(3)]
+    return img[slices[0], slices[1], slices[2]], mask[slices[0], slices[1], slices[2]]
 
 
-#####%%%%%%%%%%%%%%%%%%%%%%
 def one_hot_encode(mask, num_classes=4):
     """
     Convert BraTS tumor mask into one-hot format.
@@ -144,32 +123,133 @@ def one_hot_encode(mask, num_classes=4):
     mask[mask == 4] = 3  # remap label 4 -> 3
     return np.eye(num_classes)[mask]  # shape: (D,H,W,C)
 
-#####%%%%%%%%%%%%%%%%%%%%%%
+#====================================================================================
 
-# ------------------------------------
-# BraTS Dataset
-# ------------------------------------
-class BraTSDataset(Dataset):
-    def __init__(self, image_paths, mask_paths, normalization, 
+
+# ===================================================================================
+# Cache Builder
+def build_cache(image_paths, mask_paths, 
+                target_shape=(128,128,128), 
+                patch_size=(96,96,96), 
+                num_patches=8,
+                out_dir="cache"):
+    """
+    Build cache for P2 (volumes) and P3 (patches).
+    - P2: saves full preprocessed volumes
+    - P3: saves multiple precomputed patches
+    """
+    os.makedirs(os.path.join(out_dir, "volumes"), exist_ok=True)
+    os.makedirs(os.path.join(out_dir, "patches"), exist_ok=True)
+
+    for i in tqdm(range(len(image_paths)), desc="Caching patients"):
+        pid = os.path.basename(os.path.dirname(image_paths[i][0]))
+
+        # --- Load modalities ---
+        modalities = []
+        for path in image_paths[i]:
+            img = load_nifti(path)
+            img = clip_intensity(img)
+            img = normalize(img)
+            modalities.append(img)
+        img = np.stack(modalities, axis=0)  # (4,D,H,W)
+
+        # --- Load mask ---
+        mask = load_nifti(mask_paths[i])
+
+        # --- Crop ---
+        img_cropped = []
+        for c in range(img.shape[0]):
+            cropped_img, cropped_mask = crop_to_mask(img[c], mask)
+            img_cropped.append(cropped_img)
+        img = np.stack(img_cropped, axis=0)
+        mask = cropped_mask
+
+        # --- Resample ---
+        img = resample_to_shape(img, target_shape, mode="trilinear")
+        mask = resample_to_shape(mask, target_shape, mode="nearest")
+
+        # Save for P2
+        np.savez_compressed(
+            os.path.join(out_dir, "volumes", f"{pid}.npz"),
+            vol=img.astype(np.float32),
+            seg=mask.astype(np.uint8)
+        )
+
+        # Save for P3
+        patch_dir = os.path.join(out_dir, "patches", pid)
+        os.makedirs(patch_dir, exist_ok=True)
+
+        d, h, w = patch_size
+        _, D, H, W = img.shape
+        for j in range(num_patches):
+            z = np.random.randint(0, D - d + 1) if D > d else 0
+            y = np.random.randint(0, H - h + 1) if H > h else 0
+            x = np.random.randint(0, W - w + 1) if W > w else 0
+
+            img_patch = img[:, z:z+d, y:y+h, x:x+w]
+            mask_patch = mask[z:z+d, y:y+h, x:x+w]
+            mask_patch = one_hot_encode(mask_patch, num_classes=4)
+
+            np.savez_compressed(
+                os.path.join(patch_dir, f"{pid}_patch{j}.npz"),
+                vol=img_patch.astype(np.float32),
+                seg=mask_patch.astype(np.uint8)
+            )
+
+    print(f"✅ Cache built at: {out_dir}/volumes (P2) and {out_dir}/patches (P3)")
+
+
+# Shared Augmentation Function
+def apply_augmentations(img_patch, mask_patch):
+    """
+    Apply random augmentations to a patch.
+    Safe for MRI (flips, rotations, intensity jitter, Gaussian noise).
+    """
+    # --- Flips ---
+    if random.random() > 0.5: 
+        img_patch, mask_patch = np.flip(img_patch, 1).copy(), np.flip(mask_patch, 0).copy()
+    if random.random() > 0.5: 
+        img_patch, mask_patch = np.flip(img_patch, 2).copy(), np.flip(mask_patch, 1).copy()
+    if random.random() > 0.5: 
+        img_patch, mask_patch = np.flip(img_patch, 3).copy(), np.flip(mask_patch, 2).copy()
+
+    # --- 90-degree rotations (in-plane) ---
+    if random.random() > 0.5:
+        k = random.choice([1, 2, 3])  # 90, 180, 270 deg
+        img_patch = np.rot90(img_patch, k, axes=(2,3)).copy()  # rotate along (y,x)
+        mask_patch = np.rot90(mask_patch, k, axes=(0,1)).copy()
+
+    # --- Intensity scaling (brightness/contrast) ---
+    if random.random() > 0.5:
+        scale = random.uniform(0.9, 1.1)
+        shift = random.uniform(-0.1, 0.1)
+        img_patch = img_patch * scale + shift
+
+    # --- Gaussian noise ---
+    if random.random() > 0.5:
+        noise = np.random.normal(0, 0.01, img_patch.shape)
+        img_patch = img_patch + noise
+
+    return img_patch, mask_patch
+
+
+#### ========  Dataset Classes - Pipeline 1
+class BraTSDatasetP1(Dataset): #P1 : on the fly
+    def __init__(self, image_paths, mask_paths, 
                  target_shape=(128,128,128), 
                  patch_size=(96,96,96), 
                  augment=True, 
-                 num_classes=4,
-                 crop_margin=10,
-                 clip_percentiles=(0.5,99.5)):
+                 num_classes=4):
         """
         image_paths: list of list, each [flair, t1, t1ce, t2]
         mask_paths: list of segmentation paths
         """
         self.image_paths = image_paths
         self.mask_paths = mask_paths
-        self.normalization = normalization
         self.target_shape = target_shape
         self.patch_size = patch_size
         self.augment = augment
         self.num_classes = num_classes
-        self.crop_margin = crop_margin
-        self.clip_percentiles = clip_percentiles
 
     def __len__(self):
         return len(self.image_paths)
@@ -179,6 +259,8 @@ class BraTSDataset(Dataset):
         modalities = []
         for path in self.image_paths[idx]:
             img_array = load_nifti(path)
+            img_array = clip_intensity(img_array)
+            img_array = normalize(img_array)
             modalities.append(img_array)
 
         # Stack into (C, D, H, W)
@@ -188,24 +270,16 @@ class BraTSDataset(Dataset):
         mask = load_nifti(self.mask_paths[idx])
 
         # --- Crop around tumor/brain ---
-        fg = get_foreground(modalities)
-        s  = mask_slices(fg, margin=self.crop_margin)
-        modalities = [m[s] for m in modalities]
-        mask = mask[s]
+        img_cropped = []
+        for c in range(img.shape[0]):
+            cropped_img, cropped_mask = crop_to_mask(img[c], mask)
+            img_cropped.append(cropped_img)
+        img = np.stack(img_cropped, axis=0)
+        mask = cropped_mask
 
         # --- Resample ---
-        img = np.stack(modalities, axis=0)
         img = resample_to_shape(img, self.target_shape, mode="trilinear")  # (4,D,H,W)
         mask = resample_to_shape(mask, self.target_shape, mode="nearest")  # (D,H,W)
-
-        # --- Clip and normalization for each modality ---
-        low, high= self.clip_percentiles
-        for c in range(img.shape[0]):
-          img[c] = clip_intensity(img[c], low, high)
-          if self.normalization == "zscore":
-                img[c] = normalize(img[c])      
-          elif self.normalization == "minmax":
-                img[c] = minmax_normalize(img[c])
 
         # --- Extract random patch ---
         d, h, w = self.patch_size
@@ -222,15 +296,8 @@ class BraTSDataset(Dataset):
 
         # --- Data augmentation ---
         if self.augment:
-            if random.random() > 0.5:  # flip z
-                img_patch = np.flip(img_patch, axis=1).copy()
-                mask_patch = np.flip(mask_patch, axis=0).copy()
-            if random.random() > 0.5:  # flip y
-                img_patch = np.flip(img_patch, axis=2).copy()
-                mask_patch = np.flip(mask_patch, axis=1).copy()
-            if random.random() > 0.5:  # flip x
-                img_patch = np.flip(img_patch, axis=3).copy()
-                mask_patch = np.flip(mask_patch, axis=2).copy()
+            img_patch, mask_patch = apply_augmentations(img_patch, mask_patch)
+
 
         # --- Convert to torch tensors ---
         img_patch = torch.tensor(img_patch).float()                     # (4,d,h,w)
@@ -238,82 +305,163 @@ class BraTSDataset(Dataset):
 
         return img_patch, mask_patch
 
+# Dataset Classes - Pipeline 2
+class BraTSDatasetP2(Dataset):  # P2: cached volumes
+    def __init__(self, cache_dir, patient_ids, patch_size=(96,96,96), augment=True, num_classes=4):
+        self.cache_dir = cache_dir
+        self.patient_ids = patient_ids
+        self.patch_size = patch_size
+        self.augment = augment
+        self.num_classes = num_classes
+
+    def __len__(self): 
+        return len(self.patient_ids)
+
+    def __getitem__(self, idx):
+        pid = self.patient_ids[idx]
+        data = np.load(os.path.join(self.cache_dir, f"{pid}.npz"))
+        img, mask = data["vol"], data["seg"]
+
+        d,h,w = self.patch_size
+        _,D,H,W = img.shape
+        z,y,x = [random.randint(0, dim-size) if dim>size else 0 
+                 for dim,size in zip((D,H,W),(d,h,w))]
+        img_patch = img[:, z:z+d, y:y+h, x:x+w]
+        mask_patch = mask[z:z+d, y:y+h, x:x+w]
+        mask_patch = one_hot_encode(mask_patch, self.num_classes)
+
+        # --- Data augmentation ---
+        if self.augment:
+            img_patch, mask_patch = apply_augmentations(img_patch, mask_patch)
+
+                # --- Convert to torch tensors ---
+        img_patch = torch.tensor(img_patch).float()                     # (4,d,h,w)
+        mask_patch = torch.tensor(mask_patch).permute(3,0,1,2).float()  # (C,d,h,w)
+        
+        return img_patch, mask_patch
+
+# Dataset Classes - Pipeline 3
+class BraTSDatasetP3(Dataset):  # P3: cached patches
+    def __init__(self, cache_dir, patient_ids, augment=True, num_classes=4):
+        self.cache_dir = cache_dir
+        self.patient_ids = patient_ids
+        self.augment = augment
+        self.num_classes = num_classes
+
+    def __len__(self): return len(self.patient_ids)
+
+    def __getitem__(self, idx):
+        pid = self.patient_ids[idx]
+        patch_files = glob.glob(os.path.join(self.cache_dir, pid, "*.npz"))
+        patch_file = random.choice(patch_files)
+        data = np.load(patch_file)
+        img_patch, mask_patch = data["vol"], data["seg"]
+
+        # --- Data augmentation ---
+        if self.augment:
+            img_patch, mask_patch = apply_augmentations(img_patch, mask_patch)
+
+                # --- Convert to torch tensors ---
+        img_patch = torch.tensor(img_patch).float()                     # (4,d,h,w)
+        mask_patch = torch.tensor(mask_patch).permute(3,0,1,2).float()  # (C,d,h,w)
+
+        return img_patch, mask_patch
+
+
+# ===================================================================================
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def visualize_sample(img, mask, slice_idx=None):
+# ===================================================================================
+#Visualizing the different pipelines
+def visualize_patient_consistency(P1, P2, P3, patient_idx=0, slice_axis=0, deterministic=False):
     """
-    Visualize one slice from a 3D BraTS sample.
-    img: torch tensor (C,D,H,W)
-    mask: torch tensor (C,D,H,W) one-hot
-    slice_idx: which slice along depth (D) to show
+    Visualize dataset outputs for a given patient index.
+    Each row = pipeline (P1, P2, P3).
+    Each column = modality (FLAIR, T1, T1CE, T2, Mask).
+    Shows exactly what the model sees (post-preprocessing).
+    
+    slice_axis: 0=axial(z), 1=coronal(y), 2=sagittal(x)
+    deterministic: if True, disables randomness in patch/aug selection
+                   (center patch, no augmentation) for reproducibility.
     """
-    img = img.numpy()
-    mask = mask.numpy()
-    
-    C, D, H, W = img.shape
-    
-    # pick middle slice if none specified
-    if slice_idx is None:
-        slice_idx = D // 2
 
-    # extract modalities at chosen slice
-    modalities = [img[c, slice_idx, :, :] for c in range(C)]
-    
-    # extract segmentation mask (argmax from one-hot)
-    mask_slice = mask[:, slice_idx, :, :].argmax(0)  # (H,W)
+    datasets = [P1, P2, P3]
+    row_labels = ["P1 (on-the-fly)", "P2 (cached vol)", "P3 (cached patches)"]
+    col_titles = ["FLAIR", "T1", "T1CE", "T2", "Mask"]
 
-    fig, axes = plt.subplots(1, C+1, figsize=(15,5))
-    titles = ["Flair", "T1", "T1ce", "T2", "Segmentation"]
+    rows = []
+    for ds in datasets:
+        if deterministic:
+            # temporarily disable augmentation for consistency
+            aug_state = getattr(ds, "augment", None)
+            if aug_state is not None:
+                ds.augment = False
 
-    for i in range(C):
-        axes[i].imshow(modalities[i], cmap="gray")
-        axes[i].set_title(titles[i])
-        axes[i].axis("off")
+            # force center patch if patch_size is defined
+            if hasattr(ds, "patch_size"):
+                d, h, w = ds.patch_size
+                img_patch, mask_patch = ds[patient_idx]
+                img_patch, mask_patch = img_patch.numpy(), mask_patch.numpy()
+                mask_patch = np.argmax(mask_patch, axis=0)
+            else:
+                img_patch, mask_patch = ds[patient_idx]
+                img_patch, mask_patch = img_patch.numpy(), mask_patch.numpy()
+                mask_patch = np.argmax(mask_patch, axis=0)
 
-    axes[C].imshow(mask_slice, cmap="nipy_spectral")
-    axes[C].set_title(titles[-1])
-    axes[C].axis("off")
+            # restore augmentation state
+            if aug_state is not None:
+                ds.augment = aug_state
+        else:
+            # normal pipeline output (with randomness/aug)
+            img_patch, mask_patch = ds[patient_idx]
+            img_patch, mask_patch = img_patch.numpy(), mask_patch.numpy()
+            mask_patch = np.argmax(mask_patch, axis=0)
 
-    plt.tight_layout()
+        # choose middle slice
+        if slice_axis == 0:  
+            mid = img_patch.shape[1] // 2
+            imgs = [img_patch[i, mid, :, :] for i in range(4)]
+            m = mask_patch[mid, :, :]
+        elif slice_axis == 1:  
+            mid = img_patch.shape[2] // 2
+            imgs = [img_patch[i, :, mid, :] for i in range(4)]
+            m = mask_patch[:, mid, :]
+        elif slice_axis == 2:  
+            mid = img_patch.shape[3] // 2
+            imgs = [img_patch[i, :, :, mid] for i in range(4)]
+            m = mask_patch[:, :, mid]
+        else:
+            raise ValueError("slice_axis must be 0 (axial), 1 (coronal), or 2 (sagittal)")
+
+        rows.append(imgs + [m])
+
+    # plotting
+    fig, axes = plt.subplots(3, 5, figsize=(18, 10))
+    mode = "Deterministic (center, no aug)" if deterministic else "Random (as in training)"
+    fig.suptitle(f"Patient {patient_idx} — {mode}, axis={slice_axis}", fontsize=16)
+
+    for r in range(3):
+        for c in range(5):
+            cmap = "gray" if c < 4 else "nipy_spectral"
+            axes[r, c].imshow(rows[r][c], cmap=cmap)
+            axes[r, c].axis("off")
+            if r == 0:
+                axes[r, c].set_title(col_titles[c], fontsize=12)
+
+    plt.tight_layout(rect=(0.08, 0.03, 1.0, 0.92))
+
+    for r, label in enumerate(row_labels):
+        pos = axes[r, 0].get_position()
+        y_center = pos.y0 + pos.height / 2
+        fig.text(0.02, y_center, label, va="center", ha="left",
+                 rotation=90, fontsize=12, fontweight="bold")
+
+    out_path = f"results/images/patient-{patient_idx}_{'det' if deterministic else 'rand'}_consistency.png"
+    plt.savefig(out_path, dpi=300, bbox_inches="tight")
+    print(f"Plot saved to {out_path}")
     plt.show()
+
+
+
+

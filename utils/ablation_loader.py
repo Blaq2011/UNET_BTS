@@ -198,7 +198,42 @@ def build_cache(image_paths, mask_paths,
 
     print(f"✅ Cache built at: {out_dir}/volumes (P2) and {out_dir}/patches (P3)")
 
-# Dataset Classes - Pipeline 1
+
+# Shared Augmentation Function
+def apply_augmentations(img_patch, mask_patch):
+    """
+    Apply random augmentations to a patch.
+    Safe for MRI (flips, rotations, intensity jitter, Gaussian noise).
+    """
+    # --- Flips ---
+    if random.random() > 0.5: 
+        img_patch, mask_patch = np.flip(img_patch, 1).copy(), np.flip(mask_patch, 0).copy()
+    if random.random() > 0.5: 
+        img_patch, mask_patch = np.flip(img_patch, 2).copy(), np.flip(mask_patch, 1).copy()
+    if random.random() > 0.5: 
+        img_patch, mask_patch = np.flip(img_patch, 3).copy(), np.flip(mask_patch, 2).copy()
+
+    # --- 90-degree rotations (in-plane) ---
+    if random.random() > 0.5:
+        k = random.choice([1, 2, 3])  # 90, 180, 270 deg
+        img_patch = np.rot90(img_patch, k, axes=(2,3)).copy()  # rotate along (y,x)
+        mask_patch = np.rot90(mask_patch, k, axes=(0,1)).copy()
+
+    # --- Intensity scaling (brightness/contrast) ---
+    if random.random() > 0.5:
+        scale = random.uniform(0.9, 1.1)
+        shift = random.uniform(-0.1, 0.1)
+        img_patch = img_patch * scale + shift
+
+    # --- Gaussian noise ---
+    if random.random() > 0.5:
+        noise = np.random.normal(0, 0.01, img_patch.shape)
+        img_patch = img_patch + noise
+
+    return img_patch, mask_patch
+
+
+#### ========  Dataset Classes - Pipeline 1
 class BraTSDatasetP1(Dataset): #P1 : on the fly
     def __init__(self, image_paths, mask_paths, 
                  target_shape=(128,128,128), 
@@ -261,15 +296,8 @@ class BraTSDatasetP1(Dataset): #P1 : on the fly
 
         # --- Data augmentation ---
         if self.augment:
-            if random.random() > 0.5:  # flip z
-                img_patch = np.flip(img_patch, axis=1).copy()
-                mask_patch = np.flip(mask_patch, axis=0).copy()
-            if random.random() > 0.5:  # flip y
-                img_patch = np.flip(img_patch, axis=2).copy()
-                mask_patch = np.flip(mask_patch, axis=1).copy()
-            if random.random() > 0.5:  # flip x
-                img_patch = np.flip(img_patch, axis=3).copy()
-                mask_patch = np.flip(mask_patch, axis=2).copy()
+            img_patch, mask_patch = apply_augmentations(img_patch, mask_patch)
+
 
         # --- Convert to torch tensors ---
         img_patch = torch.tensor(img_patch).float()                     # (4,d,h,w)
@@ -302,10 +330,10 @@ class BraTSDatasetP2(Dataset):  # P2: cached volumes
         mask_patch = mask[z:z+d, y:y+h, x:x+w]
         mask_patch = one_hot_encode(mask_patch, self.num_classes)
 
+        # --- Data augmentation ---
         if self.augment:
-            if random.random()>0.5: img_patch, mask_patch = np.flip(img_patch,1).copy(), np.flip(mask_patch,0).copy()
-            if random.random()>0.5: img_patch, mask_patch = np.flip(img_patch,2).copy(), np.flip(mask_patch,1).copy()
-            if random.random()>0.5: img_patch, mask_patch = np.flip(img_patch,3).copy(), np.flip(mask_patch,2).copy()
+            img_patch, mask_patch = apply_augmentations(img_patch, mask_patch)
+
                 # --- Convert to torch tensors ---
         img_patch = torch.tensor(img_patch).float()                     # (4,d,h,w)
         mask_patch = torch.tensor(mask_patch).permute(3,0,1,2).float()  # (C,d,h,w)
@@ -329,11 +357,9 @@ class BraTSDatasetP3(Dataset):  # P3: cached patches
         data = np.load(patch_file)
         img_patch, mask_patch = data["vol"], data["seg"]
 
+        # --- Data augmentation ---
         if self.augment:
-            if random.random()>0.5: img_patch, mask_patch = np.flip(img_patch,1).copy(), np.flip(mask_patch,0).copy()
-            if random.random()>0.5: img_patch, mask_patch = np.flip(img_patch,2).copy(), np.flip(mask_patch,1).copy()
-            if random.random()>0.5: img_patch, mask_patch = np.flip(img_patch,3).copy(), np.flip(mask_patch,2).copy()
-
+            img_patch, mask_patch = apply_augmentations(img_patch, mask_patch)
 
                 # --- Convert to torch tensors ---
         img_patch = torch.tensor(img_patch).float()                     # (4,d,h,w)

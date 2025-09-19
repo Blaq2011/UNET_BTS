@@ -1,6 +1,12 @@
 import numpy as np
 import torch
+import torch.nn as nn
+from scipy.spatial.distance import directed_hausdorff
 
+
+# ----------------------
+# Dice Score
+# ----------------------
 def dice_score(mask1, mask2, num_classes=4):
     """
     Compute Dice per class between two label maps.
@@ -16,6 +22,10 @@ def dice_score(mask1, mask2, num_classes=4):
         scores.append(dice)
     return np.array(scores)
 
+
+# ----------------------
+# Pipeline Comparison (Dice)
+# ----------------------
 def compare_pipelines_dice(P1, P2, P3, num_samples=20, seed=42):
     """
     Compare P2 and P3 masks against P1 reference using Dice.
@@ -27,12 +37,10 @@ def compare_pipelines_dice(P1, P2, P3, num_samples=20, seed=42):
     dice_p2, dice_p3 = [], []
 
     for idx in indices:
-        # get patches (what model sees)
-        _, mask1 = P1[idx]  # (C,d,h,w)
+        _, mask1 = P1[idx]
         _, mask2 = P2[idx]
         _, mask3 = P3[idx]
 
-        # convert one-hot to label map
         mask1 = mask1.argmax(0).numpy()
         mask2 = mask2.argmax(0).numpy()
         mask3 = mask3.argmax(0).numpy()
@@ -44,3 +52,65 @@ def compare_pipelines_dice(P1, P2, P3, num_samples=20, seed=42):
         "P2_vs_P1": (np.mean(dice_p2, axis=0), np.std(dice_p2, axis=0)),
         "P3_vs_P1": (np.mean(dice_p3, axis=0), np.std(dice_p3, axis=0)),
     }
+
+
+# ----------------------
+# Dice Loss
+# ----------------------
+def dice_loss(pred, target, smooth=1e-5):
+    """pred: (B,C,D,H,W) logits, target: (B,C,D,H,W) one-hot"""
+    pred = torch.softmax(pred, dim=1)
+    num = 2 * torch.sum(pred * target)
+    den = torch.sum(pred + target)
+    return 1 - (num + smooth) / (den + smooth)
+
+
+# ----------------------
+# Combined Dice + CE Loss
+# ----------------------
+class DiceCELoss(nn.Module):
+    def __init__(self, weight=None):
+        super().__init__()
+        self.ce = nn.CrossEntropyLoss(weight=weight)
+
+    def forward(self, pred, target):
+        ce_loss = self.ce(pred, target.argmax(dim=1))
+        d_loss = dice_loss(pred, target)
+        return ce_loss + d_loss
+
+
+
+# BRATs standard dice (WT, TC, ET)
+
+def dice_binary(a, b, eps=1e-5):
+    inter = np.sum((a > 0) & (b > 0))
+    denom = np.sum(a > 0) + np.sum(b > 0)
+    return (2.0 * inter + eps) / (denom + eps)
+
+def brats_regions_from_labels(lbl):
+    """
+    lbl: (D,H,W) int labels {0,1,2,3}
+    Returns binary masks for WT, TC, ET.
+    WT = 1|2|3; TC = 2|3; ET = 3
+    """
+    wt = (lbl == 1) | (lbl == 2) | (lbl == 3)
+    tc = (lbl == 2) | (lbl == 3)
+    et = (lbl == 3)
+    return wt.astype(np.uint8), tc.astype(np.uint8), et.astype(np.uint8)
+
+def dice_wt_tc_et(pred_labels, gt_labels):
+    """
+    pred_labels, gt_labels: (D,H,W) int maps
+    Returns a np.array([WT, TC, ET]) dice.
+    """
+    gt_wt, gt_tc, gt_et = brats_regions_from_labels(gt_labels)
+    pr_wt, pr_tc, pr_et = brats_regions_from_labels(pred_labels)
+    return np.array([
+        dice_binary(pr_wt, gt_wt),
+        dice_binary(pr_tc, gt_tc),
+        dice_binary(pr_et, gt_et),
+    ])
+
+
+
+
