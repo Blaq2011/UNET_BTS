@@ -8,13 +8,14 @@ import time
 # ----------------------
 def train_unet_baseline(
     model, train_loader, val_loader, optimizer, loss_fn, device, save_path,
-    epochs, patience
+    epochs, patience, scheduler=None 
 ):
     model = model.to(device)
     best_val_loss = np.inf
     patience_counter = 0
 
-    history = {"train_loss": [], "val_loss": []}
+    history = {"train_loss": [], "val_loss": [], "lr": []}
+
 
     start_time = time.time()
     torch.cuda.reset_peak_memory_stats(device) if device.type == "cuda" else None
@@ -45,9 +46,12 @@ def train_unet_baseline(
                 loss = loss_fn(outputs, masks)
                 val_loss += loss.item()
         avg_val_loss = val_loss / len(val_loader)
+        
 
         history["train_loss"].append(avg_train_loss)
         history["val_loss"].append(avg_val_loss)
+
+        
         epoch_time = time.time() - epoch_start
 
         print(
@@ -56,6 +60,13 @@ def train_unet_baseline(
             f"Time={epoch_time:.2f}s"
         )
 
+        if scheduler is not None:
+            scheduler.step(avg_val_loss)
+            # Print LR change
+            current_lr = optimizer.param_groups[0]["lr"]
+            print(f"--> LR adjusted to {current_lr:.2e}")
+
+        
         # Early stopping
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
@@ -86,7 +97,7 @@ def train_unet_baseline(
 # ----------------------
 # Experiment Runner
 # ----------------------
-def run_experiment(model, optimizer, loss_fn, train_loader, val_loader, pipeline_name, device, epochs, lr, patience):
+def run_experiment(model, optimizer, loss_fn, train_loader, val_loader, pipeline_name, device, epochs, lr, patience,scheduler ):
     """
     Wrapper to train UNet on a given pipeline.
     Returns: path to best saved model + stats
@@ -103,7 +114,8 @@ def run_experiment(model, optimizer, loss_fn, train_loader, val_loader, pipeline
         device=device,
         save_path=save_path,
         epochs=epochs,
-        patience=patience
+        patience=patience,
+        scheduler = scheduler
     )
 
     return save_path, history, total_time, avg_epoch_time, gpu_mem
