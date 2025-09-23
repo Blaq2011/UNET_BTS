@@ -1,10 +1,141 @@
-
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-
 sns.set(style="whitegrid", context="talk")
 
+import nilearn as nl
+import nilearn.plotting as nlplt
+
+# =================Viewing sample image data ==================
+
+def visualize_sample(Test_filepath,test_t1_image,test_t1ce_image,test_t2_image,test_flair_image, test_mask, volume_show):
+    fig , (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5, figsize = (20, 10))
+
+    fig.suptitle('Sample data (Axial Slice) showing different varieties of Scans and the Mask'
+                , y=0.70, fontsize=20 )
+    
+    ax1.imshow(test_t1_image[:,:,volume_show], cmap = "gray")
+    ax1.set_title("t1 image")
+    ax1.grid(False)
+    
+    ax2.imshow(test_t1ce_image[:,:,volume_show], cmap = "gray")
+    ax2.set_title("t1ce image")
+    ax2.grid(False)
+    
+    ax3.imshow(test_t2_image[:,:,volume_show], cmap = "gray")
+    ax3.set_title("t2 image")
+    ax3.grid(False)
+    
+    ax4.imshow(test_flair_image[:,:,volume_show], cmap = "gray")
+    ax4.set_title("flair image")
+    ax4.grid(False)
+    
+    ax5.imshow(test_mask[:,:,volume_show])
+    ax5.set_title("seg mask")
+    ax5.grid(False)
+  
+    nl_test_t1_image = nl.image.load_img(Test_filepath + "BraTS20_Training_001_t1.nii")
+    nl_test_mask_image = nl.image.load_img(Test_filepath + "BraTS20_Training_001_seg.nii")
+    
+    # nlplt.plot_epi(nl_test_t1_image, title="T1 Tumor Image in Different orientaions")
+    nlplt.plot_roi(nl_test_mask_image,bg_img=nl_test_t1_image , title="Highlighted ROI (Tumor) in different orientations")
+ 
+
+
+# ===================================================================================
+#Visualizing the different pipelines 
+def visualize_patient_consistency(P1, P2, P3, patient_idx=0, slice_axis=0, deterministic=False):
+    """
+    Visualize dataset outputs for a given patient index.
+    Each row = pipeline (P1, P2, P3).
+    Each column = modality (FLAIR, T1, T1CE, T2, Mask).
+    Shows exactly what the model sees (post-preprocessing).
+    
+    slice_axis: 0=axial(z), 1=coronal(y), 2=sagittal(x)
+    deterministic: if True, disables randomness in patch/aug selection
+                   (center patch, no augmentation) for reproducibility.
+    """
+
+    datasets = [P1, P2, P3]
+    row_labels = ["P1 (on-the-fly)", "P2 (cached vol)", "P3 (cached patches)"]
+    col_titles = ["FLAIR", "T1", "T1CE", "T2", "Mask"]
+
+    rows = []
+    for ds in datasets:
+        if deterministic:
+            # temporarily disable augmentation for consistency
+            aug_state = getattr(ds, "augment", None)
+            if aug_state is not None:
+                ds.augment = False
+
+            # force center patch if patch_size is defined
+            if hasattr(ds, "patch_size"):
+                d, h, w = ds.patch_size
+                img_patch, mask_patch = ds[patient_idx]
+                img_patch, mask_patch = img_patch.numpy(), mask_patch.numpy()
+                mask_patch = np.argmax(mask_patch, axis=0)
+            else:
+                img_patch, mask_patch = ds[patient_idx]
+                img_patch, mask_patch = img_patch.numpy(), mask_patch.numpy()
+                mask_patch = np.argmax(mask_patch, axis=0)
+
+            # restore augmentation state
+            if aug_state is not None:
+                ds.augment = aug_state
+        else:
+            # normal pipeline output (with randomness/aug)
+            img_patch, mask_patch = ds[patient_idx]
+            img_patch, mask_patch = img_patch.numpy(), mask_patch.numpy()
+            mask_patch = np.argmax(mask_patch, axis=0)
+
+        # choose middle slice
+        if slice_axis == 0:  
+            mid = img_patch.shape[1] // 2
+            imgs = [img_patch[i, mid, :, :] for i in range(4)]
+            m = mask_patch[mid, :, :]
+        elif slice_axis == 1:  
+            mid = img_patch.shape[2] // 2
+            imgs = [img_patch[i, :, mid, :] for i in range(4)]
+            m = mask_patch[:, mid, :]
+        elif slice_axis == 2:  
+            mid = img_patch.shape[3] // 2
+            imgs = [img_patch[i, :, :, mid] for i in range(4)]
+            m = mask_patch[:, :, mid]
+        else:
+            raise ValueError("slice_axis must be 0 (axial), 1 (coronal), or 2 (sagittal)")
+
+        rows.append(imgs + [m])
+
+    # plotting
+    fig, axes = plt.subplots(3, 5, figsize=(18, 10))
+    mode = "Deterministic (center, no aug)" if deterministic else "Random (as in training)"
+    fig.suptitle(f"Patient {patient_idx} — {mode}, axis={slice_axis}", fontsize=16)
+
+    for r in range(3):
+        for c in range(5):
+            cmap = "gray" if c < 4 else "nipy_spectral"
+            axes[r, c].imshow(rows[r][c], cmap=cmap)
+            axes[r, c].axis("off")
+            if r == 0:
+                axes[r, c].set_title(col_titles[c], fontsize=12)
+
+    plt.tight_layout(rect=(0.08, 0.03, 1.0, 0.92))
+
+    for r, label in enumerate(row_labels):
+        pos = axes[r, 0].get_position()
+        y_center = pos.y0 + pos.height / 2
+        fig.text(0.02, y_center, label, va="center", ha="left",
+                 rotation=90, fontsize=12, fontweight="bold")
+
+    out_path = f"results/images/patient-{patient_idx}_{'det' if deterministic else 'rand'}_consistency.png"
+    plt.savefig(out_path, dpi=300, bbox_inches="tight")
+    print(f"Plot saved to {out_path}")
+    plt.show()
+
+
+
+# ===================================================================================
 
 def plot_losses_per_seed(csv_file: str):
     """
