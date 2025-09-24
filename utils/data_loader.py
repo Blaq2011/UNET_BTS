@@ -159,13 +159,14 @@ def build_cache(image_paths, mask_paths,
             mask = np.transpose(mask, (2, 0, 1))
 
         # --- Crop once using mask; apply same slices to all channels
-        coords = np.array(np.nonzero(mask))
+        brain_mask = img[0] > 0
+        coords = np.array(np.nonzero(brain_mask))
         if coords.size == 0:
-            slices = [slice(0, s) for s in mask.shape]
+            slices = [slice(0, s) for s in brain_mask.shape]
         else:
             margin = 10
             minc = np.maximum(coords.min(axis=1) - margin, 0)
-            maxc = np.minimum(coords.max(axis=1) + margin + 1, np.array(mask.shape))
+            maxc = np.minimum(coords.max(axis=1) + margin + 1, np.array(brain_mask.shape))
             slices = [slice(minc[i], maxc[i]) for i in range(3)]
         img  = img[:, slices[0], slices[1], slices[2]]
         mask = mask[slices[0], slices[1], slices[2]]
