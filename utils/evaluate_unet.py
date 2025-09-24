@@ -8,7 +8,7 @@ def evaluate_model(model, val_loader, device, class_names):
     Compute both per-class Dice (debug) and BraTS composite Dice (WT/TC/ET) as well as HD95(WT/TC/ET).
     """
     model.eval()
-    dices_per_class = [] #Background, Edema, Non-enh, Enh
+    dices_per_class = [] #Background, Non-enh,Edema,  Enh
     dices_brats = []  # WT, TC, ET
     hd95_brats = []  # WT, TC, ET
 
@@ -20,7 +20,7 @@ def evaluate_model(model, val_loader, device, class_names):
             gts   = masks.argmax(dim=1).cpu().numpy()              # (B,d,h,w)
 
             for p, t in zip(preds, gts):
-                # Per-class Dice (Background, Edema, Non-enh, Enh)
+                # Per-class Dice (Background,Non-enh, Edema,  Enh)
                 dices_per_class.append(dice_score(t, p, num_classes=len(class_names)))
                 # BraTS-style Dice WT/TC/ET
                 dices_brats.append(dice_wt_tc_et(p, t))
@@ -31,9 +31,12 @@ def evaluate_model(model, val_loader, device, class_names):
     dices_brats     = np.array(dices_brats)      # (N,3)
     hd95_brats      =  np.array(hd95_brats) # (N,3)
 
-    mean_pc, std_pc = dices_per_class.mean(axis=0), dices_per_class.std(axis=0)
-    mean_b, std_b   = dices_brats.mean(axis=0),  dices_brats.std(axis=0)
-    mean_hd, std_hd   = hd95_brats.mean(axis=0),  hd95_brats.std(axis=0)
+    mean_pc = np.nanmean(dices_per_class, axis=0)
+    std_pc  = np.nanstd(dices_per_class, axis=0)
+    mean_b = np.nanmean(dices_brats, axis=0)
+    std_b  = np.nanstd(dices_brats, axis=0)
+    mean_hd = np.nanmean(hd95_brats, axis=0)
+    std_hd  = np.nanstd(hd95_brats, axis=0)
 
     # Debug printout
     print("\nPer-class Dice (debugging and pipeline selection):")
@@ -51,7 +54,7 @@ def evaluate_model(model, val_loader, device, class_names):
         print(f"  {name:2s}: {m:.3f} ± {s:.3f}")
         
     return {
-        "dice_class": (mean_pc, std_pc),   # B, E, N-ET, ET: for debugging
+        "dice_class": (mean_pc, std_pc),   # B, N-ET, E, ET: for debugging
         "dice_brats": (mean_b, std_b),     # Dice WT/TC/ET : for report
         "hd95_brats": (mean_hd, std_hd),     # HD95 WT/TC/ET : for report
     }
@@ -64,7 +67,7 @@ def eval_experiment(model, val_loader, model_path, pipeline_name, device):
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
-    class_names = ["Background", "Edema", "Non-enhancing", "Enhancing"]
+    class_names = ["Background", "Non-enhancing", "Edema", "Enhancing"]
 
     print(f"\n=== Results for {pipeline_name} ===")
     return evaluate_model(model, val_loader, device, class_names=class_names)

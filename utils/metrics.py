@@ -121,9 +121,10 @@ def brats_regions_from_labels(lbl):
     Returns binary masks for WT, TC, ET.
     WT = 1|2|3; TC = 2|3; ET = 3
     """
-    wt = (lbl == 1) | (lbl == 2) | (lbl == 3)
-    tc = (lbl == 2) | (lbl == 3)
-    et = (lbl == 3)
+    wt = (lbl == 1) | (lbl == 2) | (lbl == 3) # Non-Enh (1) + Edema (2) + Enh T (3)
+    tc = (lbl == 1) | (lbl == 3) # Non-Enh(1) + Enh T (3)
+    et = (lbl == 3)  # Enh T (3)
+    # print("ET voxels in GT:", np.count_nonzero(lbl == 3))
     return wt.astype(np.uint8), tc.astype(np.uint8), et.astype(np.uint8)
 
 def dice_wt_tc_et(pred_labels, gt_labels):
@@ -166,11 +167,14 @@ def hd95(pred, gt):
     Returns:
         hd95 distance (float, in voxels)
     """
+    assert pred.shape == gt.shape, "checks Shape mismatch between prediction and ground truth"
+    
     pred = pred.astype(bool)
     gt   = gt.astype(bool)
 
     if pred.sum() == 0 or gt.sum() == 0:
-        return np.nan  # empty mask
+        print("Warning: One of the masks is empty.")
+        return np.nan
 
     # Get surfaces
     pred_surface = surface_points(pred)
@@ -191,7 +195,7 @@ def hd95(pred, gt):
 def hd95_wt_tc_et(pred_labels, gt_labels):
     """
     pred_labels, gt_labels: (D,H,W) int maps
-    Returns a np.array([WT, TC, ET]) dice.
+    Returns a np.array([WT, TC, ET]) HD95 distances.
     """
     gt_wt, gt_tc, gt_et = brats_regions_from_labels(gt_labels)
     pred_wt, pred_tc, pred_et = brats_regions_from_labels(pred_labels)

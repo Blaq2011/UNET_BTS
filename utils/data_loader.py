@@ -20,7 +20,7 @@ def get_brats_filepaths(root_dir):
     for pdir in patient_dirs:
         patient_id = os.path.basename(pdir)
 
-        # Four input modalities
+        # building Four input modalities paths
         modalities = [
             os.path.join(pdir, f"{patient_id}_flair.nii"),
             os.path.join(pdir, f"{patient_id}_t1.nii"),
@@ -28,18 +28,19 @@ def get_brats_filepaths(root_dir):
             os.path.join(pdir, f"{patient_id}_t2.nii")
         ]
 
-        # Segmentation mask
+        # building Segmentation mask paths
         seg = os.path.join(pdir, f"{patient_id}_seg.nii")
 
         image_paths.append(modalities)
         mask_paths.append(seg)
 
-    return image_paths, mask_paths
+    return image_paths, mask_paths #returns 4-element lists of modality paths and a list of single mask paths
 
 ##Splitting data into train and val sets (critical before caching!) 
 def split_brats_dataset(image_paths, mask_paths, val_size=0.2, seed=42):
     """
     Split BraTS training data into train/val sets (patient-wise).
+    80-20(train-val) split
     """
     train_imgs, val_imgs, train_masks, val_masks = train_test_split(
         image_paths, mask_paths,
@@ -47,63 +48,88 @@ def split_brats_dataset(image_paths, mask_paths, val_size=0.2, seed=42):
         random_state=seed,
         shuffle=True
     )
-    return train_imgs, val_imgs, train_masks, val_masks
+    return train_imgs, val_imgs, train_masks, val_masks 
 
 
 
 # Load Images and Masks
 def load_nifti(filepath):
     """Load NIfTI MRI file as numpy array"""
-    img = nib.load(filepath)
-    return img.get_fdata().astype(np.float32)
+    img = nib.load(filepath) #reads file
+    return img.get_fdata().astype(np.float32) #obtain and return a floating point array with (float32) for consistency 
 
 
 
 ###=====================Preprocessing utilities =======================
 def clip_intensity(img, lower=0.5, upper=99.5):
-    low, high = np.percentile(img, [lower, upper])
-    return np.clip(img, low, high)
+    '''
+    Clips image intensities to the specified percentiles (lower=0.5, upper=99.5)
+    '''
+    low, high = np.percentile(img, [lower, upper]) # Computes percentile values
+    return np.clip(img, low, high) # clips to remove extreme outliers and return results
 
 def normalize(img, mask=None):
+    '''
+    Zero-mean, unit-variance normalization within a brain mask region
+    '''
+    #If no mask provided, defines mask as img > 0
     if mask is None:
         mask = img > 0
     if np.sum(mask) == 0:
         return img
+    # Compute mean and std over with mask applied --> img[mask].
     mean = np.mean(img[mask])
     std  = np.std(img[mask])
+    # If std is too small, subtracts only the mean.Otherwise scales (img - mean) / std
     if std < 1e-6:
         return img - mean
     normalized = (img - mean) / std
-    return np.clip(normalized, -5, 5)
+    return np.clip(normalized, -5, 5) #Clips final values to [-5, 5] to avoid extreme intensities
+
 
 def resample_to_shape(img, target_shape=(128, 128, 128), mode="trilinear"):
-    import torch
-    import torch.nn.functional as F
-    if img.ndim == 3:
-        img_t = torch.tensor(img).unsqueeze(0).unsqueeze(0).float()  # (1,1,D,H,W)
+    '''
+    Resamples 3D or 4D volumes to a common shape using PyTorch’s interpolate
+    Supports "trilinear" or "nearest" modes; uses align_corners=False for trilinear.
+
+    '''
+    if img.ndim == 3: # For 3D (D,H,W)
+        img_t = torch.tensor(img).unsqueeze(0).unsqueeze(0).float()  #Adds batch & channel dimensions: (1,1,D,H,W)
         if mode == "nearest":
-            out = F.interpolate(img_t, size=target_shape, mode=mode)
+            out = F.interpolate(img_t, size=target_shape, mode=mode) #Calls F.interpolate with size=target_shape
         else:
-            out = F.interpolate(img_t, size=target_shape, mode=mode, align_corners=False)
+            out = F.interpolate(img_t, size=target_shape, mode=mode, align_corners=False) #Trilinear
         return out.squeeze().numpy()
-    elif img.ndim == 4:  # (C,D,H,W)
-        resampled = [resample_to_shape(img[c], target_shape, mode) for c in range(img.shape[0])]
-        return np.stack(resampled, axis=0)
+    elif img.ndim == 4:  # For 4D (C,D,H,W)
+        resampled = [resample_to_shape(img[c], target_shape, mode) for c in range(img.shape[0])] #Resamples each channel independently 
+        return np.stack(resampled, axis=0)                                                       #and stacks back.
     else:
         raise ValueError(f"Unsupported img shape {img.shape}, expected 3D or 4D.")
 
 def crop_to_mask(img, mask, margin=10):
-    coords = np.array(np.nonzero(mask))
+    '''
+    -->input: image and corresponding mask 
+    Crops volume to the tightest bounding box around the mask plus a margin.
+    <--Returns cropped (img, mask).
+    '''
+    coords = np.array(np.nonzero(mask)) #Finds all nonzero mask coordinates
     if coords.size == 0:
         return img, mask
+    #Computes min_coords and max_coords per axis, expanded by margin.
     min_coords = np.maximum(coords.min(axis=1) - margin, 0)
     max_coords = np.minimum(coords.max(axis=1) + margin + 1, np.array(img.shape))
+    #Constructs slice objects for each dimension
     slices = [slice(min_coords[i], max_coords[i]) for i in range(3)]
-    return img[slices[0], slices[1], slices[2]], mask[slices[0], slices[1], slices[2]]
+    return img[slices[0], slices[1], slices[2]], mask[slices[0], slices[1], slices[2]] #Returns cropped (img, mask).
 
 def one_hot_encode(mask, num_classes=4):
+    '''
+    Converts integer labels to a one-hot encoded array.
+    Original Brats Label: background (0), Non-Enh (1), Edema(2), ET(4) 
+    After one hot: background (0), Non-Enh (1), Edema(2), ET(3) 
+    '''
     mask = mask.astype(np.int32)
-    mask[mask == 4] = 3
+    mask[mask == 4] = 3 #Maps any label 4 to 3 (to unify ET label).
     return np.eye(num_classes)[mask]  # (D,H,W,C)
 
 # ===== Cache Builder =========================================

@@ -2,20 +2,19 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import time
-
+from utils.metrics import dice_score
 # ----------------------
 # Training Loop with Early Stopping (toggle option)
 # ----------------------
 def train_unet(
     model, train_loader, val_loader, optimizer, loss_fn, device, save_path,
-    epochs, patience, scheduler=None , early_stopping = False
+    epochs, patience, scheduler=None, early_stopping=False
 ):
     model = model.to(device)
     best_val_loss = np.inf
     patience_counter = 0
 
-    history = {"train_loss": [], "val_loss": [], "lr": []}
-
+    history = {"train_loss": [], "val_loss": [], "lr": [], "val_dice": []}  # Added val_dice
 
     start_time = time.time()
     torch.cuda.reset_peak_memory_stats(device) if device.type == "cuda" else None
@@ -39,19 +38,25 @@ def train_unet(
         # Validation
         model.eval()
         val_loss = 0
+        val_dice_scores = []  # Track per-class Dice
         with torch.no_grad():
             for imgs, masks in tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Val]"):
                 imgs, masks = imgs.to(device), masks.to(device)
                 outputs = model(imgs)
                 loss = loss_fn(outputs, masks)
                 val_loss += loss.item()
+
+                # Dice tracking
+                preds = torch.argmax(outputs, dim=1).cpu().numpy()
+                gts = masks.argmax(dim=1).cpu().numpy()
+                for p, t in zip(preds, gts):
+                    val_dice_scores.append(dice_score(t, p, num_classes=4))  #added per class dice
+
         avg_val_loss = val_loss / len(val_loader)
-        
+        val_dice_scores = np.array(val_dice_scores)
+        mean_dice = val_dice_scores.mean(axis=0)
+        history["val_dice"].append(mean_dice)  # Store per class Dice
 
-        history["train_loss"].append(avg_train_loss)
-        history["val_loss"].append(avg_val_loss)
-
-        
         epoch_time = time.time() - epoch_start
 
         print(
@@ -60,28 +65,29 @@ def train_unet(
             f"Time={epoch_time:.2f}s"
         )
 
+        # Print per-class Dice
+        class_names = ["Background", "Non-enhancing", "Edema", "Enhancing"]
+        print("Val Dice per class:")
+        for i, cls in enumerate(class_names):
+            print(f"  {cls:15s}: {mean_dice[i]:.3f}")
+
         if scheduler is not None:
             scheduler.step(avg_val_loss)
-            # Print LR change
             current_lr = optimizer.param_groups[0]["lr"]
             print(f"--> LR adjusted to {current_lr:.2e}")
             history["lr"].append(current_lr)
-
 
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             patience_counter = 0
             torch.save(model.state_dict(), save_path)
             print(f"New best model saved at {save_path} (Val Loss={best_val_loss:.4f})")
-       
-        # Early stopping:
         elif early_stopping:
             patience_counter += 1
             if patience_counter >= patience:
                 print("Early stopping triggered.")
                 break
 
-       
     total_time = time.time() - start_time
     avg_epoch_time = total_time / (epoch + 1)
     gpu_mem = (
