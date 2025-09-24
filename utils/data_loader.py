@@ -52,13 +52,19 @@ def split_brats_dataset(image_paths, mask_paths, val_size=0.2, seed=42):
 
 
 
-# Load Images and Masks
+# # Load Images and Masks
+# def load_nifti(filepath):
+#     """Load NIfTI MRI file as numpy array"""
+#     img = nib.load(filepath) #reads file
+#     return img.get_fdata().astype(np.float32) #obtain and return a floating point array with (float32) for consistency 
+
+
 def load_nifti(filepath):
-    """Load NIfTI MRI file as numpy array"""
-    img = nib.load(filepath) #reads file
-    return img.get_fdata().astype(np.float32) #obtain and return a floating point array with (float32) for consistency 
-
-
+    # force RAS+ canonical orientation
+    img = nib.load(filepath)
+    img = nib.as_closest_canonical(img)
+    arr = img.get_fdata().astype(np.float32)
+    return arr
 
 ###=====================Preprocessing utilities =======================
 def clip_intensity(img, lower=0.5, upper=99.5):
@@ -150,13 +156,20 @@ def build_cache(image_paths, mask_paths,
             img = load_nifti(path)            
             img = clip_intensity(img)
             modalities.append(img)
-        img = np.stack(modalities, axis=0)     
+       
+        # img = np.stack(modalities, axis=0)     
+        # if img.shape[1] != img.shape[2]:  
+        #     img = np.transpose(img, (0, 3, 1, 2))
 
-        if img.shape[1] != img.shape[2]:  
-            img = np.transpose(img, (0, 3, 1, 2))
-        mask = load_nifti(mask_paths[i])
-        if mask.shape[0] != img.shape[1]:  # (H,W,D) -> (D,H,W)
-            mask = np.transpose(mask, (2, 0, 1))
+        img = np.stack(modalities, axis=0)      # (4, H, W, D)
+        img = np.transpose(img, (0, 3, 1, 2))   # → (4, D, H, W)
+        
+        # mask = load_nifti(mask_paths[i])
+        # if mask.shape[0] != img.shape[1]:  # (H,W,D) -> (D,H,W)
+        #     mask = np.transpose(mask, (2, 0, 1))
+
+        mask = load_nifti(mask_paths[i])        # (H, W, D)
+        mask = np.transpose(mask, (2, 0, 1))     # → (D, H, W)
 
         # --- Crop once using mask; apply same slices to all channels
         brain_mask = img[0] > 0
@@ -254,10 +267,10 @@ class BraTSDatasetP1(Dataset):  # P1 : on the fly
             arr = clip_intensity(arr)
             modalities.append(arr)
         img = np.stack(modalities, axis=0)  # (4,H,W,D) -> (4,D,H,W)
-        img = np.transpose(img, (0,3,1,2))
+        img = np.transpose(img, (0,3,1,2)) ##Unconditional transpose should be done in build_cache as well, else patches don't align
 
         mask = load_nifti(self.mask_paths[idx])  # (H,W,D) -> (D,H,W)
-        mask = np.transpose(mask, (2,0,1))
+        mask = np.transpose(mask, (2,0,1)) ##Unconditional transpose should be done in build_cache as well, else patches don't align
 
         # --- Crop once using mask; apply to all channels
         brain_mask = (img[0] > 0).astype(np.uint8)
@@ -376,8 +389,46 @@ class BraTSDatasetP3(Dataset):  # P3: cached patches
 
 
 # ===================================================================================
+from utils.metrics import dice_score
 
+def patch_consistency_test(ds_a, ds_b, idx_list, num_classes=4, seed=1234):
+    """
+    Compare patches from two datasets ds_a and ds_b at the same indices,
+    with fixed RNG seed and no augmentations. Returns a dict of lists:
+      {
+        'per_class_dice': [ [dice_cls0, dice_cls1,...],  ... ]  
+      }
+    """
+    results = {'per_class_dice': []}
 
+    for idx in idx_list:
+        # reset RNG so both datasets sample the same patch coords
+        random.seed(seed); torch.manual_seed(seed); np.random.seed(seed)
+        img_a, mask_a_1h = ds_a[idx]
+        # do it again for ds_b
+        random.seed(seed); torch.manual_seed(seed); np.random.seed(seed)
+        img_b, mask_b_1h = ds_b[idx]
+
+        # convert one-hot masks to class-label maps
+        # shape mask_1h: (C, d, h, w)
+        ma = mask_a_1h.argmax(dim=0).numpy()
+        mb = mask_b_1h.argmax(dim=0).numpy()
+
+        per_cls = dice_score(ma, mb, num_classes=4)
+        # per_cls = []
+        # for cls in range(num_classes):
+        #     ba = (ma == cls)
+        #     bb = (mb == cls)
+        #     inter = np.logical_and(ba, bb).sum()
+        #     vol_a = ba.sum()
+        #     vol_b = bb.sum()
+        #     # add a tiny eps to avoid zero-div
+        #     dice = 2 * inter / (vol_a + vol_b + 1e-16)
+        #     per_cls.append(dice)
+        
+        results['per_class_dice'].append(per_cls)
+
+    return results
 
 
 

@@ -1,3 +1,5 @@
+import random
+import torch
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -45,7 +47,7 @@ def visualize_sample(Test_filepath,test_t1_image,test_t1ce_image,test_t2_image,t
 
 # ===================================================================================
 #Visualizing the different pipelines 
-def visualize_patient_consistency(P1, P2, P3, patient_idx=0, slice_axis=0, deterministic=False):
+def visualize_patient_consistency(P1, P2, P3, patient_idx=0, slice_axis=0, seed=1234):
     """
     Visualize dataset outputs for a given patient index.
     Each row = pipeline (P1, P2, P3).
@@ -53,8 +55,6 @@ def visualize_patient_consistency(P1, P2, P3, patient_idx=0, slice_axis=0, deter
     Shows exactly what the model sees (post-preprocessing).
     
     slice_axis: 0=axial(z), 1=coronal(y), 2=sagittal(x)
-    deterministic: if True, disables randomness in patch/aug selection
-                   (center patch, no augmentation) for reproducibility.
     """
 
     datasets = [P1, P2, P3]
@@ -63,42 +63,27 @@ def visualize_patient_consistency(P1, P2, P3, patient_idx=0, slice_axis=0, deter
 
     rows = []
     for ds in datasets:
-        if deterministic:
-            # temporarily disable augmentation for consistency
-            aug_state = getattr(ds, "augment", None)
-            if aug_state is not None:
-                ds.augment = False
+        # get the preprocessed patch & its mask
 
-            # force center patch if patch_size is defined
-            if hasattr(ds, "patch_size"):
-                d, h, w = ds.patch_size
-                img_patch, mask_patch = ds[patient_idx]
-                img_patch, mask_patch = img_patch.numpy(), mask_patch.numpy()
-                mask_patch = np.argmax(mask_patch, axis=0)
-            else:
-                img_patch, mask_patch = ds[patient_idx]
-                img_patch, mask_patch = img_patch.numpy(), mask_patch.numpy()
-                mask_patch = np.argmax(mask_patch, axis=0)
-
-            # restore augmentation state
-            if aug_state is not None:
-                ds.augment = aug_state
-        else:
-            # normal pipeline output (with randomness/aug)
+        if seed is not None:
+            random.seed(seed); torch.manual_seed(seed); np.random.seed(seed)# reset RNG so both datasets sample the same patch coords
             img_patch, mask_patch = ds[patient_idx]
-            img_patch, mask_patch = img_patch.numpy(), mask_patch.numpy()
-            mask_patch = np.argmax(mask_patch, axis=0)
+        else:
+            img_patch, mask_patch = ds[patient_idx]
+            
+        img_patch, mask_patch = img_patch.numpy(), mask_patch.numpy()
+        mask_patch = np.argmax(mask_patch, axis=0)
 
         # choose middle slice
-        if slice_axis == 0:  
+        if slice_axis == 0:
             mid = img_patch.shape[1] // 2
             imgs = [img_patch[i, mid, :, :] for i in range(4)]
             m = mask_patch[mid, :, :]
-        elif slice_axis == 1:  
+        elif slice_axis == 1:
             mid = img_patch.shape[2] // 2
             imgs = [img_patch[i, :, mid, :] for i in range(4)]
             m = mask_patch[:, mid, :]
-        elif slice_axis == 2:  
+        elif slice_axis == 2:
             mid = img_patch.shape[3] // 2
             imgs = [img_patch[i, :, :, mid] for i in range(4)]
             m = mask_patch[:, :, mid]
@@ -109,8 +94,10 @@ def visualize_patient_consistency(P1, P2, P3, patient_idx=0, slice_axis=0, deter
 
     # plotting
     fig, axes = plt.subplots(3, 5, figsize=(18, 10))
-    mode = "Deterministic (center, no aug)" if deterministic else "Random (as in training)"
-    fig.suptitle(f"Patient {patient_idx} — {mode}, axis={slice_axis}", fontsize=16)
+    if seed is not None:
+        fig.suptitle(f"Patient_deterministic {patient_idx}, axis={slice_axis}", fontsize=16)
+    else:
+        fig.suptitle(f"Patient_random {patient_idx}, axis={slice_axis}", fontsize=16)
 
     for r in range(3):
         for c in range(5):
@@ -125,10 +112,15 @@ def visualize_patient_consistency(P1, P2, P3, patient_idx=0, slice_axis=0, deter
     for r, label in enumerate(row_labels):
         pos = axes[r, 0].get_position()
         y_center = pos.y0 + pos.height / 2
-        fig.text(0.02, y_center, label, va="center", ha="left",
-                 rotation=90, fontsize=12, fontweight="bold")
-
-    out_path = f"results/images/patient-{patient_idx}_{'det' if deterministic else 'rand'}_consistency.png"
+        fig.text(
+            0.02, y_center, label, va="center", ha="left",
+            rotation=90, fontsize=12, fontweight="bold"
+        )
+        
+    if seed is not None:
+        out_path = f"results/images/Patient_deterministic-{patient_idx}_consistency.png"
+    else:
+        out_path = f"results/images/Patient_random-{patient_idx}_consistency.png"
     plt.savefig(out_path, dpi=300, bbox_inches="tight")
     print(f"Plot saved to {out_path}")
     plt.show()
