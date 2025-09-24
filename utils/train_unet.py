@@ -4,11 +4,11 @@ from tqdm import tqdm
 import time
 
 # ----------------------
-# Training Loop with Early Stopping
+# Training Loop with Early Stopping (toggle option)
 # ----------------------
-def train_unet_baseline(
+def train_unet(
     model, train_loader, val_loader, optimizer, loss_fn, device, save_path,
-    epochs, patience, scheduler=None 
+    epochs, patience, scheduler=None , early_stopping = False
 ):
     model = model.to(device)
     best_val_loss = np.inf
@@ -65,20 +65,23 @@ def train_unet_baseline(
             # Print LR change
             current_lr = optimizer.param_groups[0]["lr"]
             print(f"--> LR adjusted to {current_lr:.2e}")
+            history["lr"].append(current_lr)
 
-        
-        # Early stopping
+
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             patience_counter = 0
             torch.save(model.state_dict(), save_path)
             print(f"New best model saved at {save_path} (Val Loss={best_val_loss:.4f})")
-        else:
+       
+        # Early stopping:
+        elif early_stopping:
             patience_counter += 1
             if patience_counter >= patience:
                 print("Early stopping triggered.")
                 break
 
+       
     total_time = time.time() - start_time
     avg_epoch_time = total_time / (epoch + 1)
     gpu_mem = (
@@ -97,7 +100,7 @@ def train_unet_baseline(
 # ----------------------
 # Experiment Runner
 # ----------------------
-def run_experiment(model, optimizer, loss_fn, train_loader, val_loader, pipeline_name, device, epochs, lr, patience,scheduler ):
+def run_experiment(model, optimizer, loss_fn, train_loader, val_loader, pipeline_name, device, epochs, lr, patience,scheduler, early_stopping ):
     """
     Wrapper to train UNet on a given pipeline.
     Returns: path to best saved model + stats
@@ -105,7 +108,7 @@ def run_experiment(model, optimizer, loss_fn, train_loader, val_loader, pipeline
     save_path = f"models/unet_{pipeline_name}.pth"
 
     print(f"\n=== Training UNet on {pipeline_name} ===")
-    history, total_time, avg_epoch_time, gpu_mem = train_unet_baseline(
+    history, total_time, avg_epoch_time, gpu_mem = train_unet(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
@@ -115,7 +118,8 @@ def run_experiment(model, optimizer, loss_fn, train_loader, val_loader, pipeline
         save_path=save_path,
         epochs=epochs,
         patience=patience,
-        scheduler = scheduler
+        scheduler = scheduler,
+        early_stopping = early_stopping
     )
 
     return save_path, history, total_time, avg_epoch_time, gpu_mem

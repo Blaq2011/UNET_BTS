@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from scipy.spatial.distance import directed_hausdorff
+from scipy.ndimage import distance_transform_edt, binary_erosion, generate_binary_structure
+
 
 
 # ----------------------
@@ -54,21 +56,47 @@ def compare_pipelines_dice(P1, P2, P3, num_samples=20, seed=42):
     }
 
 
+
+
+
+#####From here --- PART ---  EVANS
+
+
 # ----------------------
 # Dice Loss
 # ----------------------
-def dice_loss(pred, target, smooth=1e-5):
-    """pred: (B,C,D,H,W) logits, target: (B,C,D,H,W) one-hot"""
+def dice_loss(pred, target, smooth=1):
+    """pred: (B,C,D,H,W) logits, 
+        target: (B,C,D,H,W) one-hot
+
+        We first find the Dice Similarity Coefficient (DSC) which tells 
+        how much the prediction and target overlap.
+        1 = Complete overlap, 0 = No overlap
+        Then we calculate and return the dice loss, which is 1 - DSC,
+        thus; the closer the dice loss is to 0 , the better the overlap.
+    """
     pred = torch.softmax(pred, dim=1)
-    num = 2 * torch.sum(pred * target)
-    den = torch.sum(pred + target)
-    return 1 - (num + smooth) / (den + smooth)
+    num = 2 * torch.sum(pred * target) #numerator
+    den = torch.sum(pred + target) # denominator
+    DSC = (num + smooth) / (den + smooth) # Dice similarity coefficient
+    return 1 - DSC
 
 
 # ----------------------
 # Combined Dice + CE Loss
 # ----------------------
 class DiceCELoss(nn.Module):
+    '''
+    The dice loss calculated above is combined with the CE loss.
+    This is done to utilze the advantages of both loss functions
+    mostly on imbalanced datasets.CE provides good pixel-wise accuracy and handles class 
+    imbalances by focusing on overall accuracy, while Dice Loss excels at handling significant 
+    class imbalances and focuses on the spatial overlap of segmentations. Together, 
+    they allow for a more robust and balanced training approach, leading to superior 
+    overall segmentation performance, better handling of under-represented classes, 
+    and more stable training compared to using either loss function alone. 
+
+    '''
     def __init__(self, weight=None):
         super().__init__()
         self.ce = nn.CrossEntropyLoss(weight=weight)
@@ -105,12 +133,73 @@ def dice_wt_tc_et(pred_labels, gt_labels):
     """
     gt_wt, gt_tc, gt_et = brats_regions_from_labels(gt_labels)
     pr_wt, pr_tc, pr_et = brats_regions_from_labels(pred_labels)
+    
     return np.array([
         dice_binary(pr_wt, gt_wt),
         dice_binary(pr_tc, gt_tc),
-        dice_binary(pr_et, gt_et),
+        dice_binary(pr_et, gt_et)
     ])
+    
+
+###Calculating HD95
+'''
+HD95 measures boundary distance between predicted and ground-truth segmentations.
+Instead of the maximum Hausdorff distance (sensitive to outliers), 
+HD95 computes the 95th percentile of distances between the two boundaries.
+Lower = better.
+'''
 
 
+def surface_points(mask):
+    """Return binary surface mask for a 3D binary volume."""
+    struct = generate_binary_structure(3, 1)
+    eroded = binary_erosion(mask, structure=struct, border_value=0)
+    return mask ^ eroded
 
+def hd95(pred, gt):
+    """
+    Compute 95th percentile Hausdorff Distance (HD95) between two binary masks.
+    Memory-efficient version using distance transforms.
+    Args:
+        pred: (D,H,W) binary prediction
+        gt:   (D,H,W) binary ground truth
+    Returns:
+        hd95 distance (float, in voxels)
+    """
+    pred = pred.astype(bool)
+    gt   = gt.astype(bool)
+
+    if pred.sum() == 0 or gt.sum() == 0:
+        return np.nan  # empty mask
+
+    # Get surfaces
+    pred_surface = surface_points(pred)
+    gt_surface   = surface_points(gt)
+
+    # Distance transforms
+    dt_pred = distance_transform_edt(~pred_surface)
+    dt_gt   = distance_transform_edt(~gt_surface)
+
+    # Directed distances
+    dists_pred_to_gt = dt_gt[pred_surface]
+    dists_gt_to_pred = dt_pred[gt_surface]
+
+    all_dists = np.concatenate([dists_pred_to_gt, dists_gt_to_pred])
+    return np.percentile(all_dists, 95)
+
+
+def hd95_wt_tc_et(pred_labels, gt_labels):
+    """
+    pred_labels, gt_labels: (D,H,W) int maps
+    Returns a np.array([WT, TC, ET]) dice.
+    """
+    gt_wt, gt_tc, gt_et = brats_regions_from_labels(gt_labels)
+    pred_wt, pred_tc, pred_et = brats_regions_from_labels(pred_labels)
+    
+    return np.array([
+        hd95(pred_wt, gt_wt),
+        hd95(pred_tc, gt_tc),
+        hd95(pred_et, gt_et)
+    ])
+    
 

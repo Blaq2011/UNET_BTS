@@ -1,16 +1,16 @@
 import torch
 import numpy as np
-from utils.unet import UNet3D
-from utils.metrics import dice_score, dice_wt_tc_et
+from utils.metrics import dice_score, dice_wt_tc_et, hd95_wt_tc_et
 import matplotlib.pyplot as plt
 
 def evaluate_model(model, val_loader, device, class_names):
     """
-    Compute both per-class Dice (debug) and BraTS composite Dice (WT/TC/ET).
+    Compute both per-class Dice (debug) and BraTS composite Dice (WT/TC/ET) as well as HD95(WT/TC/ET).
     """
     model.eval()
-    dices_per_class = []
+    dices_per_class = [] #Background, Edema, Non-enh, Enh
     dices_brats = []  # WT, TC, ET
+    hd95_brats = []  # WT, TC, ET
 
     with torch.no_grad():
         for imgs, masks in val_loader:
@@ -20,30 +20,40 @@ def evaluate_model(model, val_loader, device, class_names):
             gts   = masks.argmax(dim=1).cpu().numpy()              # (B,d,h,w)
 
             for p, t in zip(preds, gts):
-                # Per-class (Background, Edema, Non-enh, Enh)
+                # Per-class Dice (Background, Edema, Non-enh, Enh)
                 dices_per_class.append(dice_score(t, p, num_classes=len(class_names)))
-                # BraTS-style WT/TC/ET
+                # BraTS-style Dice WT/TC/ET
                 dices_brats.append(dice_wt_tc_et(p, t))
-
+                # BraTS-style HD95 WT/TC/ET
+                hd95_brats.append(hd95_wt_tc_et(p, t))
+                
     dices_per_class = np.array(dices_per_class)  # (N,4)
     dices_brats     = np.array(dices_brats)      # (N,3)
+    hd95_brats      =  np.array(hd95_brats) # (N,3)
 
     mean_pc, std_pc = dices_per_class.mean(axis=0), dices_per_class.std(axis=0)
     mean_b, std_b   = dices_brats.mean(axis=0),  dices_brats.std(axis=0)
+    mean_hd, std_hd   = hd95_brats.mean(axis=0),  hd95_brats.std(axis=0)
 
     # Debug printout
     print("\nPer-class Dice (debugging and pipeline selection):")
     for i, cls in enumerate(class_names):
         print(f"  {cls:15s}: {mean_pc[i]:.3f} ± {std_pc[i]:.3f}")
 
-    # Report printout
+    # Report printout - Dice
     print("\nBraTS region Dice (Model comparison , BRATS format):")
     for name, m, s in zip(["WT", "TC", "ET"], mean_b, std_b):
         print(f"  {name:2s}: {m:.3f} ± {s:.3f}")
-
+        
+    # Report printout - HD95
+    print("\nBraTS HD95 (Model comparison , BRATS format):")
+    for name, m, s in zip(["WT", "TC", "ET"], mean_hd, std_hd):
+        print(f"  {name:2s}: {m:.3f} ± {s:.3f}")
+        
     return {
-        "dice_class": (mean_pc, std_pc),   # optional, for debugging
-        "dice_brats": (mean_b, std_b),     # WT/TC/ET — what you report
+        "dice_class": (mean_pc, std_pc),   # B, E, N-ET, ET: for debugging
+        "dice_brats": (mean_b, std_b),     # Dice WT/TC/ET : for report
+        "hd95_brats": (mean_hd, std_hd),     # HD95 WT/TC/ET : for report
     }
 
 
