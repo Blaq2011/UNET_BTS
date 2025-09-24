@@ -61,250 +61,230 @@ def load_nifti(filepath):
 
 ###=====================Preprocessing utilities =======================
 def clip_intensity(img, lower=0.5, upper=99.5):
-    """Clip intensities to remove outliers"""
     low, high = np.percentile(img, [lower, upper])
-    img = np.clip(img, low, high)
-    return img
+    return np.clip(img, low, high)
 
-
-def normalize(img):
-    """Z-score normalization (ignores background)"""
-    mask = img > 0
-    if np.sum(mask) == 0:  # avoid NaN if image is empty
+def normalize(img, mask=None):
+    if mask is None:
+        mask = img > 0
+    if np.sum(mask) == 0:
         return img
     mean = np.mean(img[mask])
-    std = np.std(img[mask])
-    return (img - mean) / (std + 1e-8)
-
+    std  = np.std(img[mask])
+    if std < 1e-6:
+        return img - mean
+    normalized = (img - mean) / std
+    return np.clip(normalized, -5, 5)
 
 def resample_to_shape(img, target_shape=(128, 128, 128), mode="trilinear"):
-    """
-    Resample 3D (D,H,W) or 4D (C,D,H,W) image to target shape.
-    mode: "trilinear" for images, "nearest" for masks
-    """
+    import torch
+    import torch.nn.functional as F
     if img.ndim == 3:
-        img_t = torch.tensor(img).unsqueeze(0).unsqueeze(0)  # (1,1,D,H,W)
+        img_t = torch.tensor(img).unsqueeze(0).unsqueeze(0).float()  # (1,1,D,H,W)
         if mode == "nearest":
-            img_resampled = F.interpolate(img_t, size=target_shape, mode=mode)
+            out = F.interpolate(img_t, size=target_shape, mode=mode)
         else:
-            img_resampled = F.interpolate(img_t, size=target_shape, mode=mode, align_corners=False)
-        return img_resampled.squeeze().numpy()
-
+            out = F.interpolate(img_t, size=target_shape, mode=mode, align_corners=False)
+        return out.squeeze().numpy()
     elif img.ndim == 4:  # (C,D,H,W)
-        resampled = []
-        for c in range(img.shape[0]):
-            channel_resized = resample_to_shape(img[c], target_shape, mode)
-            resampled.append(channel_resized)
+        resampled = [resample_to_shape(img[c], target_shape, mode) for c in range(img.shape[0])]
         return np.stack(resampled, axis=0)
-
     else:
         raise ValueError(f"Unsupported img shape {img.shape}, expected 3D or 4D.")
 
-
 def crop_to_mask(img, mask, margin=10):
-    """Crop around the nonzero region of mask (or brain)"""
     coords = np.array(np.nonzero(mask))
-    if coords.size == 0:  # empty mask fallback
+    if coords.size == 0:
         return img, mask
     min_coords = np.maximum(coords.min(axis=1) - margin, 0)
-    max_coords = np.minimum(coords.max(axis=1) + margin, img.shape)
-    
+    max_coords = np.minimum(coords.max(axis=1) + margin + 1, np.array(img.shape))
     slices = [slice(min_coords[i], max_coords[i]) for i in range(3)]
     return img[slices[0], slices[1], slices[2]], mask[slices[0], slices[1], slices[2]]
 
-
 def one_hot_encode(mask, num_classes=4):
-    """
-    Convert BraTS tumor mask into one-hot format.
-    Original labels: 0=background, 1=edema, 2=non-enhancing, 4=enhancing
-    Remapped labels: 0=background, 1=edema, 2=non-enhancing, 3=enhancing
-    """
     mask = mask.astype(np.int32)
-    mask[mask == 4] = 3  # remap label 4 -> 3
-    return np.eye(num_classes)[mask]  # shape: (D,H,W,C)
+    mask[mask == 4] = 3
+    return np.eye(num_classes)[mask]  # (D,H,W,C)
 
-#====================================================================================
-
-
-# ===================================================================================
-# Cache Builder
+# ===== Cache Builder =========================================
 def build_cache(image_paths, mask_paths, 
                 target_shape=(128,128,128), 
                 patch_size=(96,96,96), 
                 num_patches=8,
                 out_dir="cache"):
-    """
-    Build cache for P2 (volumes) and P3 (patches).
-    - P2: saves full preprocessed volumes
-    - P3: saves multiple precomputed patches
-    """
     os.makedirs(os.path.join(out_dir, "volumes"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "patches"), exist_ok=True)
 
     for i in tqdm(range(len(image_paths)), desc="Caching patients"):
         pid = os.path.basename(os.path.dirname(image_paths[i][0]))
 
-        # --- Load modalities ---
+        # --- Load + clip (no normalize yet)
         modalities = []
         for path in image_paths[i]:
-            img = load_nifti(path)
+            img = load_nifti(path)            
             img = clip_intensity(img)
-            img = normalize(img)
             modalities.append(img)
-        img = np.stack(modalities, axis=0)  # (4,D,H,W)
+        img = np.stack(modalities, axis=0)     
 
-        # --- Load mask ---
+        if img.shape[1] != img.shape[2]:  
+            img = np.transpose(img, (0, 3, 1, 2))
         mask = load_nifti(mask_paths[i])
+        if mask.shape[0] != img.shape[1]:  # (H,W,D) -> (D,H,W)
+            mask = np.transpose(mask, (2, 0, 1))
 
-        # --- Crop ---
-        img_cropped = []
-        for c in range(img.shape[0]):
-            cropped_img, cropped_mask = crop_to_mask(img[c], mask)
-            img_cropped.append(cropped_img)
-        img = np.stack(img_cropped, axis=0)
-        mask = cropped_mask
+        # --- Crop once using mask; apply same slices to all channels
+        coords = np.array(np.nonzero(mask))
+        if coords.size == 0:
+            slices = [slice(0, s) for s in mask.shape]
+        else:
+            margin = 10
+            minc = np.maximum(coords.min(axis=1) - margin, 0)
+            maxc = np.minimum(coords.max(axis=1) + margin + 1, np.array(mask.shape))
+            slices = [slice(minc[i], maxc[i]) for i in range(3)]
+        img  = img[:, slices[0], slices[1], slices[2]]
+        mask = mask[slices[0], slices[1], slices[2]]
 
-        # --- Resample ---
-        img = resample_to_shape(img, target_shape, mode="trilinear")
+        # --- Resample (images: trilinear, mask: nearest)
+        img  = resample_to_shape(img,  target_shape, mode="trilinear")
         mask = resample_to_shape(mask, target_shape, mode="nearest")
 
-        # Save for P2
-        np.savez_compressed(
-            os.path.join(out_dir, "volumes", f"{pid}.npz"),
-            vol=img.astype(np.float32),
-            seg=mask.astype(np.uint8)
-        )
+        # --- Normalize AFTER resample, using FLAIR foreground
+        brain_mask = img[0] > 0
+        for c in range(img.shape[0]):
+            img[c] = normalize(img[c], mask=brain_mask)
 
-        # Save for P3
+        # --- Save P2 (full volume)
+        np.savez_compressed(os.path.join(out_dir, "volumes", f"{pid}.npz"),
+                            vol=img.astype(np.float32),
+                            seg=mask.astype(np.uint8))
+
+        # --- Save P3 (random patches)
         patch_dir = os.path.join(out_dir, "patches", pid)
         os.makedirs(patch_dir, exist_ok=True)
-
         d, h, w = patch_size
         _, D, H, W = img.shape
         for j in range(num_patches):
             z = np.random.randint(0, D - d + 1) if D > d else 0
             y = np.random.randint(0, H - h + 1) if H > h else 0
             x = np.random.randint(0, W - w + 1) if W > w else 0
-
-            img_patch = img[:, z:z+d, y:y+h, x:x+w]
+            img_patch  = img[:, z:z+d, y:y+h, x:x+w]
             mask_patch = mask[z:z+d, y:y+h, x:x+w]
-            mask_patch = one_hot_encode(mask_patch, num_classes=4)
-
-            np.savez_compressed(
-                os.path.join(patch_dir, f"{pid}_patch{j}.npz"),
-                vol=img_patch.astype(np.float32),
-                seg=mask_patch.astype(np.uint8)
-            )
+            mask_1h    = one_hot_encode(mask_patch, num_classes=4)
+            np.savez_compressed(os.path.join(patch_dir, f"{pid}_patch{j}.npz"),
+                                vol=img_patch.astype(np.float32),
+                                seg=mask_1h.astype(np.uint8))
 
     print(f"Cache built at: {out_dir}/volumes (P2) and {out_dir}/patches (P3)")
 
 
 # Shared Augmentation Function
 def apply_augmentations(img_patch, mask_patch):
-    """
-    Apply random augmentations to a patch.
-    Safe for MRI (flips, rotations, intensity jitter, Gaussian noise).
-    """
-    # --- Flips ---
-    if random.random() > 0.5: 
-        img_patch, mask_patch = np.flip(img_patch, 1).copy(), np.flip(mask_patch, 0).copy()
-    if random.random() > 0.5: 
-        img_patch, mask_patch = np.flip(img_patch, 2).copy(), np.flip(mask_patch, 1).copy()
-    if random.random() > 0.5: 
-        img_patch, mask_patch = np.flip(img_patch, 3).copy(), np.flip(mask_patch, 2).copy()
-
-    # --- 90-degree rotations (in-plane) ---
+    # flips
     if random.random() > 0.5:
-        k = random.choice([1, 2, 3])  # 90, 180, 270 deg
-        img_patch = np.rot90(img_patch, k, axes=(2,3)).copy()  # rotate along (y,x)
+        img_patch, mask_patch = np.flip(img_patch, 1).copy(), np.flip(mask_patch, 0).copy()
+    if random.random() > 0.5:
+        img_patch, mask_patch = np.flip(img_patch, 2).copy(), np.flip(mask_patch, 1).copy()
+    if random.random() > 0.5:
+        img_patch, mask_patch = np.flip(img_patch, 3).copy(), np.flip(mask_patch, 2).copy()
+    # rotations in-plane
+    if random.random() > 0.5:
+        k = random.choice([1,2,3])
+        img_patch  = np.rot90(img_patch,  k, axes=(2,3)).copy()
         mask_patch = np.rot90(mask_patch, k, axes=(0,1)).copy()
-
-    # --- Intensity scaling (brightness/contrast) ---
+    # intensity jitter
     if random.random() > 0.5:
         scale = random.uniform(0.9, 1.1)
         shift = random.uniform(-0.1, 0.1)
         img_patch = img_patch * scale + shift
-
-    # --- Gaussian noise ---
+    # gaussian noise
     if random.random() > 0.5:
         noise = np.random.normal(0, 0.01, img_patch.shape)
         img_patch = img_patch + noise
-
     return img_patch, mask_patch
 
-
-#### ========  Dataset Classes - Pipeline 1
-class BraTSDatasetP1(Dataset): #P1 : on the fly
+# Dataset Classes - Pipeline 1
+class BraTSDatasetP1(Dataset):  # P1 : on the fly
     def __init__(self, image_paths, mask_paths, 
                  target_shape=(128,128,128), 
                  patch_size=(96,96,96), 
                  augment=True, 
                  num_classes=4):
-        """
-        image_paths: list of list, each [flair, t1, t1ce, t2]
-        mask_paths: list of segmentation paths
-        """
         self.image_paths = image_paths
-        self.mask_paths = mask_paths
+        self.mask_paths  = mask_paths
         self.target_shape = target_shape
-        self.patch_size = patch_size
-        self.augment = augment
-        self.num_classes = num_classes
+        self.patch_size   = patch_size
+        self.augment      = augment
+        self.num_classes  = num_classes
 
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
-        # --- Load modalities ---
+        # --- Load + clip (no normalize yet)
         modalities = []
         for path in self.image_paths[idx]:
-            img_array = load_nifti(path)
-            img_array = clip_intensity(img_array)
-            img_array = normalize(img_array)
-            modalities.append(img_array)
+            arr = load_nifti(path)          # (H,W,D)
+            arr = clip_intensity(arr)
+            modalities.append(arr)
+        img = np.stack(modalities, axis=0)  # (4,H,W,D) -> (4,D,H,W)
+        img = np.transpose(img, (0,3,1,2))
 
-        # Stack into (C, D, H, W)
-        img = np.stack(modalities, axis=0)
+        mask = load_nifti(self.mask_paths[idx])  # (H,W,D) -> (D,H,W)
+        mask = np.transpose(mask, (2,0,1))
 
-        # --- Load mask ---
-        mask = load_nifti(self.mask_paths[idx])
+        # --- Crop once using mask; apply to all channels
+        brain_mask = (img[0] > 0).astype(np.uint8)
+        coords = np.array(np.nonzero(brain_mask))
+        if coords.size == 0:
+            slices = [slice(0, s) for s in brain_mask.shape]
+        else:
+            margin = 20
+            minc = np.maximum(coords.min(axis=1) - margin, 0)
+            maxc = np.minimum(coords.max(axis=1) + margin + 1, np.array(brain_mask.shape))
+            slices = [slice(minc[i], maxc[i]) for i in range(3)]
+        img  = img[:, slices[0], slices[1], slices[2]]
+        mask = mask[slices[0], slices[1], slices[2]]
 
-        # --- Crop around tumor/brain ---
-        img_cropped = []
+        # --- Resample
+        img  = resample_to_shape(img,  self.target_shape, mode="trilinear")
+        mask = resample_to_shape(mask, self.target_shape, mode="nearest")
+
+        # --- Normalize (use FLAIR foreground)
+        brain_mask = img[0] > 0
         for c in range(img.shape[0]):
-            cropped_img, cropped_mask = crop_to_mask(img[c], mask)
-            img_cropped.append(cropped_img)
-        img = np.stack(img_cropped, axis=0)
-        mask = cropped_mask
+            img[c] = normalize(img[c], mask=brain_mask)
 
-        # --- Resample ---
-        img = resample_to_shape(img, self.target_shape, mode="trilinear")  # (4,D,H,W)
-        mask = resample_to_shape(mask, self.target_shape, mode="nearest")  # (D,H,W)
+        # --- Patch (center for debugging; switch to random for training)
+        d,h,w = self.patch_size
+        _, D,H,W = img.shape
+        pos = np.argwhere(mask > 0)
+        use_fg = (len(pos) > 0) and (random.random() < 0.5)   # 50% 前景patch
+        if use_fg:
+            cz, cy, cx = pos[random.randrange(len(pos))]
+            z = max(0, min(cz - d//2, D - d))
+            y = max(0, min(cy - h//2, H - h))
+            x = max(0, min(cx - w//2, W - w))
+        else:
+            z = random.randint(0, max(D - d, 0))
+            y = random.randint(0, max(H - h, 0))
+            x = random.randint(0, max(W - w, 0))
 
-        # --- Extract random patch ---
-        d, h, w = self.patch_size
-        _, D, H, W = img.shape
-        z = random.randint(0, D - d) if D > d else 0
-        y = random.randint(0, H - h) if H > h else 0
-        x = random.randint(0, W - w) if W > w else 0
+        img_patch  = img[:, z:z+d, y:y+h, x:x+w]
+        mask_patch = mask[z:z+d, y:y+h, x:x+w]
 
-        img_patch = img[:, z:z+d, y:y+h, x:x+w]   # (4,d,h,w)
-        mask_patch = mask[z:z+d, y:y+h, x:x+w]    # (d,h,w)
+        # --- One-hot
+        mask_1h = one_hot_encode(mask_patch, self.num_classes)  # (d,h,w,C)
 
-        # --- One-hot encode mask ---
-        mask_patch = one_hot_encode(mask_patch, self.num_classes)  # (d,h,w,C)
-
-        # --- Data augmentation ---
+        # --- Augment (if enabled)
         if self.augment:
-            img_patch, mask_patch = apply_augmentations(img_patch, mask_patch)
+            img_patch, mask_1h = apply_augmentations(img_patch, mask_1h)
 
+        # --- Tensors
+        img_t  = torch.tensor(img_patch).float()                   # (4,d,h,w)
+        mask_t = torch.tensor(mask_1h).permute(3,0,1,2).float()    # (C,d,h,w)
 
-        # --- Convert to torch tensors ---
-        img_patch = torch.tensor(img_patch).float()                     # (4,d,h,w)
-        mask_patch = torch.tensor(mask_patch).permute(3,0,1,2).float()  # (C,d,h,w)
-
-        return img_patch, mask_patch
-
+        return img_t, mask_t
+        
 # Dataset Classes - Pipeline 2
 class BraTSDatasetP2(Dataset):  # P2: cached volumes
     def __init__(self, cache_dir, patient_ids, patch_size=(96,96,96), augment=True, num_classes=4):
