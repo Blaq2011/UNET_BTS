@@ -159,13 +159,14 @@ def build_cache(image_paths, mask_paths,
             mask = np.transpose(mask, (2, 0, 1))
 
         # --- Crop once using mask; apply same slices to all channels
-        coords = np.array(np.nonzero(mask))
+        brain_mask = img[0] > 0
+        coords = np.array(np.nonzero(brain_mask))
         if coords.size == 0:
-            slices = [slice(0, s) for s in mask.shape]
+            slices = [slice(0, s) for s in brain_mask.shape]
         else:
-            margin = 10
+            margin = 40
             minc = np.maximum(coords.min(axis=1) - margin, 0)
-            maxc = np.minimum(coords.max(axis=1) + margin + 1, np.array(mask.shape))
+            maxc = np.minimum(coords.max(axis=1) + margin + 1, np.array(brain_mask.shape))
             slices = [slice(minc[i], maxc[i]) for i in range(3)]
         img  = img[:, slices[0], slices[1], slices[2]]
         mask = mask[slices[0], slices[1], slices[2]]
@@ -200,10 +201,7 @@ def build_cache(image_paths, mask_paths,
                                 vol=img_patch.astype(np.float32),
                                 seg=mask_1h.astype(np.uint8))
 
-    print(f"Cache built at: {out_dir}/volumes (P2) and {out_dir}/patches (P3)")
-
-
-# Shared Augmentation Function
+# ===== Augment  ===============================================
 def apply_augmentations(img_patch, mask_patch):
     # flips
     if random.random() > 0.5:
@@ -216,7 +214,7 @@ def apply_augmentations(img_patch, mask_patch):
     if random.random() > 0.5:
         k = random.choice([1,2,3])
         img_patch  = np.rot90(img_patch,  k, axes=(2,3)).copy()
-        mask_patch = np.rot90(mask_patch, k, axes=(0,1)).copy()
+        mask_patch = np.rot90(mask_patch, k, axes=(1,2)).copy()
     # intensity jitter
     if random.random() > 0.5:
         scale = random.uniform(0.9, 1.1)
@@ -264,7 +262,7 @@ class BraTSDatasetP1(Dataset):  # P1 : on the fly
         if coords.size == 0:
             slices = [slice(0, s) for s in brain_mask.shape]
         else:
-            margin = 20
+            margin = 40
             minc = np.maximum(coords.min(axis=1) - margin, 0)
             maxc = np.minimum(coords.max(axis=1) + margin + 1, np.array(brain_mask.shape))
             slices = [slice(minc[i], maxc[i]) for i in range(3)]
