@@ -265,7 +265,7 @@ class BraTSDatasetP1(Dataset):  # P1 : on the fly
         if coords.size == 0:
             slices = [slice(0, s) for s in brain_mask.shape]
         else:
-            margin = 20
+            margin = 10
             minc = np.maximum(coords.min(axis=1) - margin, 0)
             maxc = np.minimum(coords.max(axis=1) + margin + 1, np.array(brain_mask.shape))
             slices = [slice(minc[i], maxc[i]) for i in range(3)]
