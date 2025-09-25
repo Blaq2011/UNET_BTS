@@ -129,7 +129,7 @@ def visualize_patient_consistency(P1, P2, P3, patient_idx=0, slice_axis=0, seed=
 
 # ===================================================================================
 
-def plot_losses_per_seed(csv_file: str):
+def plot_losses_per_seed(csv_file: str, colors=("orange", "green", "purple")):
     """
     Plot training vs validation loss for each pipeline, grouped by seed.
     Each seed will produce its own figure.
@@ -137,6 +137,9 @@ def plot_losses_per_seed(csv_file: str):
     df = pd.read_csv(csv_file)
     seeds = df["seed"].unique()
 
+    pipelines = sorted(df["pipeline"].unique())
+    palette = {p: c for p, c in zip(pipelines, colors)}
+    
     for seed in seeds:
         sub = df[df["seed"] == seed]
 
@@ -146,24 +149,33 @@ def plot_losses_per_seed(csv_file: str):
         sns.lineplot(
             data=sub,
             x="epoch", y="train_loss",
-            hue="pipeline", style="pipeline",
-            markers=True, dashes=False,
-            legend="full", alpha=0.8
+            hue="pipeline", palette=palette, 
+            linestyle="-",marker="o",
+            legend=False, alpha=0.8
         )
 
         # Validation loss (dashed)
         sns.lineplot(
             data=sub,
             x="epoch", y="val_loss",
-            hue="pipeline", style="pipeline",
-            markers=False, dashes=True,
+            hue="pipeline", palette=palette,
+            linestyle="--",markers=False, 
             legend=False, alpha=0.8
         )
 
+        from matplotlib.lines import Line2D
+        legend_lines = [
+            Line2D([0], [0], color="black", linestyle="-", label="Training"),
+            Line2D([0], [0], color="black", linestyle="--", label="Validation")
+        ]
+        for p in pipelines:
+            legend_lines.append(Line2D([0], [0], color=palette[p], marker="o", label=p))
+
+       
         plt.title(f"Seed {seed} - Training vs Validation Loss")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
-        plt.legend(title="Pipeline")
+        plt.legend(handles=legend_lines, title="Line style / Pipeline", loc="upper right", frameon=True,fontsize=9, title_fontsize=10)
         plt.tight_layout()
         plt.show()
 
