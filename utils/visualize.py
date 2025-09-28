@@ -180,7 +180,7 @@ def plot_losses_per_seed(csv_file: str, colors=("orange", "green", "purple")):
         plt.show()
 
 
-def plot_loss_summary(csv_file: str):
+def plot_loss_summary(csv_file: str, figurename):
     """
     Plot mean ± std of training and validation loss across seeds for each pipeline.
     Produces two figures: one for training loss, one for validation loss.
@@ -200,39 +200,44 @@ def plot_loss_summary(csv_file: str):
     )
 
     # --- Training Loss ---
-    plt.figure(figsize=(10, 6))
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(10, 5))
+    plt.suptitle("Training & Validation Losses Across Pipelines (Averaged Over Seeds)")
+
     for pipeline in summary["pipeline"].unique():
         sub = summary[summary["pipeline"] == pipeline]
-        plt.plot(sub["epoch"], sub["train_mean"], label=pipeline, linewidth=2)
-        plt.fill_between(
-            sub["epoch"],
-            sub["train_mean"] - sub["train_std"],
-            sub["train_mean"] + sub["train_std"],
-            alpha=0.2
-        )
-    plt.title("Training Loss Across Pipelines (Averaged Over Seeds)")
-    plt.xlabel("Epoch")
-    plt.ylabel("Training Loss")
-    plt.legend(title="Pipeline")
-    plt.grid(True, linestyle="--", alpha=0.6)
-    plt.tight_layout()
-    plt.show()
+        ax1.plot(sub["epoch"], sub["train_mean"], label=pipeline, linewidth=2)
+        # plt.fill_between(
+        #     sub["epoch"],
+        #     sub["train_mean"] - sub["train_std"],
+        #     sub["train_mean"] + sub["train_std"],
+        #     alpha=0.2
+        # )
+   
+    ax1.set_xlabel("Epoch")
+    ax1.set_ylabel("Training Loss")
+    ax1.legend(title="Pipeline")
+    ax1.grid(True, linestyle="--", alpha=0.6)
+    # ax1.tight_layout()
+    # ax1.show()
 
     # --- Validation Loss ---
-    plt.figure(figsize=(10, 6))
+    # plt.figure(figsize=(10, 6))
     for pipeline in summary["pipeline"].unique():
         sub = summary[summary["pipeline"] == pipeline]
-        plt.plot(sub["epoch"], sub["val_mean"], label=pipeline, linewidth=2)
-        plt.fill_between(
-            sub["epoch"],
-            sub["val_mean"] - sub["val_std"],
-            sub["val_mean"] + sub["val_std"],
-            alpha=0.2
-        )
-    plt.title("Validation Loss Across Pipelines (Averaged Over Seeds)")
-    plt.xlabel("Epoch")
-    plt.ylabel("Validation Loss")
-    plt.legend(title="Pipeline")
-    plt.grid(True, linestyle="--", alpha=0.6)
+        ax2.plot(sub["epoch"], sub["val_mean"], label=pipeline, linewidth=2)
+        # plt.fill_between(
+        #     sub["epoch"],
+        #     sub["val_mean"] - sub["val_std"],
+        #     sub["val_mean"] + sub["val_std"],
+        #     alpha=0.2
+        # )
+    # ax2.set_title("Validation Loss Across Pipelines (Averaged Over Seeds)")
+    ax2.set_xlabel("Epoch")
+    ax2.set_ylabel("Validation Loss")
+    ax2.legend(title="Pipeline")
+    ax2.grid(True, linestyle="--", alpha=0.6)
     plt.tight_layout()
+    
+    plt.savefig(f"results/Images/{figurename}.png",  dpi=300, bbox_inches="tight")
+    
     plt.show()

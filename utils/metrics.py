@@ -64,48 +64,53 @@ def compare_pipelines_dice(P1, P2, P3, num_samples=20, seed=42):
 
 # ----------------------
 # Dice Loss
-# ----------------------
-def dice_loss(pred, target, smooth=1):
-    """pred: (B,C,D,H,W) logits, 
-        target: (B,C,D,H,W) one-hot
 
-        We first find the Dice Similarity Coefficient (DSC) which tells 
-        how much the prediction and target overlap.
-        1 = Complete overlap, 0 = No overlap
-        Then we calculate and return the dice loss, which is 1 - DSC,
-        thus; the closer the dice loss is to 0 , the better the overlap.
+def dice_loss(pred, target, smooth=1e-5):
     """
+    pred: (B, C, D, H, W) logits
+    target: (B, C, D, H, W) one-hot
+    Returns average Dice loss over batch and classes.
+    """
+    # apply softmax over classes
     pred = torch.softmax(pred, dim=1)
-    num = 2 * torch.sum(pred * target) #numerator
-    den = torch.sum(pred + target) # denominator
-    DSC = (num + smooth) / (den + smooth) # Dice similarity coefficient
-    return 1 - DSC
+    B, C = pred.shape[:2]
+    
+    # flatten spatial dims: (B, C, N)
+    pred_flat = pred.view(B, C, -1)
+    target_flat = target.view(B, C, -1)
+    
+    # intersection and cardinality per sample and class
+    intersection = (pred_flat * target_flat).sum(dim=2)
+    cardinality = pred_flat.sum(dim=2) + target_flat.sum(dim=2)
+    
+    # Dice score per sample and class
+    dice_score = (2.0 * intersection + smooth) / (cardinality + smooth)
+    
+    # Dice loss = 1 − Dice score, then average
+    dice_loss_per_class = 1.0 - dice_score
+    return dice_loss_per_class.mean()
 
-
-# ----------------------
-# Combined Dice + CE Loss
-# ----------------------
 class DiceCELoss(nn.Module):
-    '''
-    The dice loss calculated above is combined with the CE loss.
-    This is done to utilze the advantages of both loss functions
-    mostly on imbalanced datasets.CE provides good pixel-wise accuracy and handles class 
-    imbalances by focusing on overall accuracy, while Dice Loss excels at handling significant 
-    class imbalances and focuses on the spatial overlap of segmentations. Together, 
-    they allow for a more robust and balanced training approach, leading to superior 
-    overall segmentation performance, better handling of under-represented classes, 
-    and more stable training compared to using either loss function alone. 
-
-    '''
-    def __init__(self, weight=None):
+    def __init__(self, ce_weight=None, alpha=0.5):
+        """
+        ce_weight: tensor of shape (C,) for class weighting in CrossEntropy
+        alpha: weighting factor between CE and Dice (0 = only Dice, 1 = only CE)
+        """
         super().__init__()
-        self.ce = nn.CrossEntropyLoss(weight=weight)
+        self.ce = nn.CrossEntropyLoss(weight=ce_weight, reduction='mean')
+        self.alpha = alpha
 
-    def forward(self, pred, target):
-        ce_loss = self.ce(pred, target.argmax(dim=1))
-        d_loss = dice_loss(pred, target)
-        return ce_loss + d_loss
-
+    def forward(self, pred, target_onehot):
+        """
+        pred: (B, C, D, H, W) logits
+        target_onehot: (B, C, D, H, W) one-hot encoding
+        """
+        # CE expects class indices of shape (B, D, H, W)
+        target_idx = target_onehot.argmax(dim=1)
+        loss_ce = self.ce(pred, target_idx)
+        loss_dice = dice_loss(pred, target_onehot)
+        # balanced sum
+        return self.alpha * loss_ce + (1 - self.alpha) * loss_dice
 
 
 # BRATs standard dice (WT, TC, ET)
@@ -173,7 +178,7 @@ def hd95(pred, gt):
     gt   = gt.astype(bool)
 
     if pred.sum() == 0 or gt.sum() == 0:
-        print("Warning: One of the masks is empty.")
+        # print("Warning: One of the masks is empty.")
         return np.nan
 
     # Get surfaces
