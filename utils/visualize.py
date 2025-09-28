@@ -241,3 +241,82 @@ def plot_loss_summary(csv_file: str, figurename):
     plt.savefig(f"results/Images/{figurename}.png",  dpi=300, bbox_inches="tight")
     
     plt.show()
+
+
+# ========================================
+def plot_model_comparison(csv_files, labels):
+  '''
+  Args:
+      csv_files: List of csv file paths.
+      label: List of model names corresponding to each csv file.
+ Output:(1)Training loss (2) validation loss
+ - The lowest validation loss for each model is highlighted with its value and epoch
+ (3) validation Dice 
+ - The lowest validation Dice score for each model is highlighted with its value and epoch
+ 
+ Usage:
+        csv_files = [
+            "results/model comparison/base/all_pipelines_history.csv",
+            "results/model comparison/optimized/all_pipelines_history.csv"
+        ]
+        labels = ["Baseline", "Optimized"]
+
+        plot_model_comparison(csv_files, labels)
+
+  '''
+    plt.figure(figsize=(15,4))
+    
+    # --- Train Loss ---
+    plt.subplot(1,3,1)
+    for csv, label in zip(csv_files, labels):
+        df = pd.read_csv(csv)
+        plt.plot(df["epoch"], df["train_loss"], label=f"{label} - train")
+    plt.title("Training Loss across models")
+    plt.xlabel("Epoch")
+    plt.ylabel("Train Loss")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.6)
+
+    # --- Validation Loss ---
+    plt.subplot(1,3,2)
+    colors = plt.get_cmap("tab10").colors  
+    for i, (csv, label) in enumerate(zip(csv_files, labels)):
+        df = pd.read_csv(csv)
+        color = colors[i % len(colors)]
+        plt.plot(df["epoch"], df["val_loss"], color=color, label=f"{label} - val")
+
+        min_idx = df["val_loss"].idxmin()
+        best_epoch = df.loc[min_idx, "epoch"]
+        best_val = df.loc[min_idx, "val_loss"]
+        plt.scatter(best_epoch, best_val, color=color, zorder=5)
+        plt.text(best_epoch-1.5, best_val+0.05, f"{best_val:.3f}\n(E{best_epoch})",
+                 fontsize=8, color=color)
+    
+    plt.title("Validation Loss across models")
+    plt.xlabel("Epoch")
+    plt.ylabel("Validation Loss")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.6)
+
+    # --- Validation Dice ---
+    plt.subplot(1,3,3)
+    for i, (csv, label) in enumerate(zip(csv_files, labels)):
+        df = pd.read_csv(csv)
+        color = colors[i % len(colors)]
+        plt.plot(df["epoch"], df["val_dice"], color=color, label=f"{label} - val")
+
+        max_idx = df["val_dice"].idxmax()
+        best_epoch = df.loc[max_idx, "epoch"]
+        best_val = df.loc[max_idx, "val_dice"]
+        plt.scatter(best_epoch, best_val, color=color, zorder=5)
+        plt.text(best_epoch-1.5, best_val-0.06, f"{best_val:.3f}\n(E{best_epoch})",
+                 fontsize=8, color=color)
+    
+    plt.title("Validation Dice across models")
+    plt.xlabel("Epoch")
+    plt.ylabel("Validation Dice")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.6)
+
+    plt.tight_layout()
+    plt.show()
