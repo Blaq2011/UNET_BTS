@@ -5,6 +5,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set(style="whitegrid", context="talk")
+import torch
+from matplotlib.patches import Patch
+from matplotlib.colors import ListedColormap, BoundaryNorm
 
 import nilearn as nl
 import nilearn.plotting as nlplt
@@ -325,4 +328,75 @@ def plot_model_comparison(csv_files, labels, save_path=None):
         plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
     plt.show()
+#===========visualize prediction==============
+def visualize_prediction(model, val_loader, device, slice_idxs=(60, 60, 60),title="Segmentation Results"):
+    """
+    Visualize axial / coronal / sagittal slices together:
+    (FLAIR MRI, Ground Truth, Prediction) for each view.
+    """
+    model.eval()
+    imgs, masks = next(iter(val_loader))           
+    imgs, masks = imgs.to(device), masks.to(device)
+
+    with torch.no_grad():
+        logits = model(imgs)                       
+        preds  = torch.argmax(logits, dim=1)       
+        gts    = torch.argmax(masks, dim=1)        
+
+    # pick first sample
+    img, gt, pr = imgs[0], gts[0], preds[0]  # img: (4,D,H,W), gt/pr: (D,H,W)
+
+    axial_idx, coronal_idx, sagittal_idx = slice_idxs
+
+    # slice extraction
+    axial_img, axial_gt, axial_pr = img[0, axial_idx].cpu(), gt[axial_idx].cpu(), pr[axial_idx].cpu()
+    coronal_img, coronal_gt, coronal_pr = img[0, :, coronal_idx, :].cpu(), gt[:, coronal_idx, :].cpu(), pr[:, coronal_idx, :].cpu()
+    sagittal_img, sagittal_gt, sagittal_pr = img[0, :, :, sagittal_idx].cpu(), gt[:, :, sagittal_idx].cpu(), pr[:, :, sagittal_idx].cpu()
+
+    # normalize MRI
+    def normalize_img(x):
+        x = x.numpy()
+        return (x - x.min()) / (x.max() - x.min() + 1e-8)
+
+    axial_img, coronal_img, sagittal_img = map(normalize_img, [axial_img, coronal_img, sagittal_img])
+
+    # colormap
+    cmap = ListedColormap(["black", "gold", "deepskyblue", "crimson"])
+    norm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5, 3.5], cmap.N)
+
+    fig, axes = plt.subplots(3, 3, figsize=(12, 12))
+
+    views = [
+        ("Axial", axial_img, axial_gt, axial_pr),
+        ("Coronal", coronal_img, coronal_gt, coronal_pr),
+        ("Sagittal", sagittal_img, sagittal_gt, sagittal_pr)
+    ]
+
+    for i, (view, imgv, gt2d, pr2d) in enumerate(views):
+        axes[i, 0].imshow(imgv, cmap="gray")
+        axes[i, 0].set_title(f"{view} MRI (FLAIR)")
+        axes[i, 0].axis("off")
+        
+        axes[i, 1].imshow(imgv, cmap="gray")
+        axes[i, 1].imshow(gt2d, cmap=cmap, norm=norm, alpha=0.6)
+        axes[i, 1].set_title(f"{view} Ground Truth")
+        axes[i, 1].axis("off")
+        
+        axes[i, 2].imshow(imgv, cmap="gray")
+        axes[i, 2].imshow(pr2d, cmap=cmap, norm=norm, alpha=0.6)
+        axes[i, 2].set_title(f"{view} Prediction")
+        axes[i, 2].axis("off")
+        
+    # add legend
+    legend_elements = [
+        Patch(facecolor="black", label="Background", alpha=0.5),
+        Patch(facecolor="gold", label="Non-enhancing core", alpha=0.5),
+        Patch(facecolor="deepskyblue", label="Edema", alpha=0.5),
+        Patch(facecolor="crimson", label="Enhancing tumor", alpha=0.5),
+    ]
+    fig.legend(handles=legend_elements, bbox_to_anchor=(1.05, 0.5), loc="center left")
+    fig.suptitle(title, fontsize=16)
+    plt.tight_layout()
+    plt.show()
+
 
