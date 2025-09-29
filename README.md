@@ -16,8 +16,6 @@ UNET_BTS
 |   demo.ipynb
 |   README.md
 |   requirements.txt
-|   structure.txt
-|   test.ipynb
 |   
 +---.ipynb_checkpoints                                          
 |       demo-checkpoint.ipynb

@@ -338,11 +338,20 @@ def visualize_prediction_multiview(model, val_loader, device, slice_idxs=(60, 60
     imgs, masks = next(iter(val_loader))           
     imgs, masks = imgs.to(device), masks.to(device)
 
-    with torch.no_grad():
-        logits = model(imgs)                       
-        preds  = torch.argmax(logits, dim=1)       
-        gts    = torch.argmax(masks, dim=1)        
+    # with torch.no_grad():
+    #     logits = model(imgs)                       
+    #     preds  = torch.argmax(logits, dim=1)       
+    #     gts    = torch.argmax(masks, dim=1)        
 
+
+    with torch.no_grad():
+        logits = model(imgs)
+        if isinstance(logits, list): #handle deep supervision
+            logits = logits[-1]
+        preds = torch.argmax(logits, dim=1)
+        gts = torch.argmax(masks, dim=1)
+
+    
     # pick first sample
     img, gt, pr = imgs[0], gts[0], preds[0]  # img: (4,D,H,W), gt/pr: (D,H,W)
 
@@ -400,7 +409,7 @@ def visualize_prediction_multiview(model, val_loader, device, slice_idxs=(60, 60
     plt.show()
 
     if save_path is True:
-        save_path = f"{title}.png"
+        save_path = f"results/sample_predictions/{title}.png"
     fig.savefig(save_path, dpi=300, bbox_inches="tight")
     print(f" Figure saved to {save_path}")
     
