@@ -329,7 +329,7 @@ def plot_model_comparison(csv_files, labels, save_path=None):
 
     plt.show()
 #===========visualize prediction==============
-def visualize_prediction(model, val_loader, device, slice_idxs=(60, 60, 60),title="Segmentation Results"):
+def visualize_prediction_multiview(model, val_loader, device, slice_idxs=(60, 60, 60),title="Segmentation Results", save_path=True):
     """
     Visualize axial / coronal / sagittal slices together:
     (FLAIR MRI, Ground Truth, Prediction) for each view.
@@ -399,4 +399,8 @@ def visualize_prediction(model, val_loader, device, slice_idxs=(60, 60, 60),titl
     plt.tight_layout()
     plt.show()
 
-
+    if save_path is True:
+        save_path = f"{title}.png"
+    fig.savefig(save_path, dpi=300, bbox_inches="tight")
+    print(f" Figure saved to {save_path}")
+    
