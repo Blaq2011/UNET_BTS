@@ -13,17 +13,17 @@ data/processed/
 *.nii
 *.nii.gz
 
-# Models & Checkpoints
-models/
-*.pth
-*.pt
+# # Models & Checkpoints
+# models/
+# *.pth
+# *.pt
 
-# Results
-results/metrics.csv
-results/sample_predictions/
-*.png
-*.jpg
+# # Results
+# results/metrics.csv
+# results/sample_predictions/
+# *.png
+# *.jpg
 
-# OS-specific
-.DS_Store
-Thumbs.db
+# # OS-specific
+# .DS_Store
+# Thumbs.db
