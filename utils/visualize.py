@@ -244,17 +244,19 @@ def plot_loss_summary(csv_file: str, figurename):
 
 
 # ========================================
-def plot_model_comparison(csv_files, labels):
-  '''
-  Args:
-      csv_files: List of csv file paths.
-      label: List of model names corresponding to each csv file.
- Output:(1)Training loss (2) validation loss
- - The lowest validation loss for each model is highlighted with its value and epoch
- (3) validation Dice 
- - The lowest validation Dice score for each model is highlighted with its value and epoch
- 
- Usage:
+def plot_model_comparison(csv_files, labels, save_path=None):
+    '''
+    Args:
+        csv_files: List of csv file paths.
+        label: List of model names corresponding to each csv file.
+    Output:
+        (1) Training loss
+        (2) Validation loss
+            - The lowest validation loss for each model is highlighted with its value and epoch
+        (3) Validation Dice 
+            - The highest validation Dice score for each model is highlighted with its value and epoch
+
+    Usage:
         csv_files = [
             "results/model comparison/base/all_pipelines_history.csv",
             "results/model comparison/optimized/all_pipelines_history.csv"
@@ -262,12 +264,11 @@ def plot_model_comparison(csv_files, labels):
         labels = ["Baseline", "Optimized"]
 
         plot_model_comparison(csv_files, labels)
-
-  '''
-    plt.figure(figsize=(15,4))
+    '''
+    plt.figure(figsize=(15,19))
     
     # --- Train Loss ---
-    plt.subplot(1,3,1)
+    plt.subplot(3,1,1)
     for csv, label in zip(csv_files, labels):
         df = pd.read_csv(csv)
         plt.plot(df["epoch"], df["train_loss"], label=f"{label} - train")
@@ -278,7 +279,7 @@ def plot_model_comparison(csv_files, labels):
     plt.grid(True, linestyle="--", alpha=0.6)
 
     # --- Validation Loss ---
-    plt.subplot(1,3,2)
+    plt.subplot(3,1,2)
     colors = plt.get_cmap("tab10").colors  
     for i, (csv, label) in enumerate(zip(csv_files, labels)):
         df = pd.read_csv(csv)
@@ -299,7 +300,7 @@ def plot_model_comparison(csv_files, labels):
     plt.grid(True, linestyle="--", alpha=0.6)
 
     # --- Validation Dice ---
-    plt.subplot(1,3,3)
+    plt.subplot(3,1,3)
     for i, (csv, label) in enumerate(zip(csv_files, labels)):
         df = pd.read_csv(csv)
         color = colors[i % len(colors)]
@@ -319,4 +320,9 @@ def plot_model_comparison(csv_files, labels):
     plt.grid(True, linestyle="--", alpha=0.6)
 
     plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
     plt.show()
+

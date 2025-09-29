@@ -14,6 +14,7 @@ def run_train_eval(
     model_fn,
     loss_fn_fn,
     optimizer_fn,
+    modelName,
     scheduler_fn=None,
     early_stopping = True,
     run_experiment_fn=run_experiment,
@@ -63,7 +64,7 @@ def run_train_eval(
             ckpt, hist, total_time, avg_epoch_time, peak_mem = run_experiment_fn(
                 model, optimizer, loss_fn,
                 train_loader, val_loader,
-                f"{name}_s{seed}", device,
+                f"{name}_s{seed}", modelName, device,
                 epochs, lr, patience,
                 scheduler=scheduler,
                 early_stopping=early_stopping
@@ -106,7 +107,7 @@ def run_train_eval(
 
     # combine & save all histories
     df_all_hist = pd.concat(all_histories, ignore_index=True)
-    path_all_hist = os.path.join(results_dir, "all_pipelines_history.csv")
+    path_all_hist = os.path.join(results_dir, f"{modelName}_all_pipelines_history.csv")
     df_all_hist.to_csv(path_all_hist, index=False)
     print(f"\nSaved all histories → {path_all_hist}")
 
@@ -149,7 +150,7 @@ def run_train_eval(
         })
 
     df_summary = pd.DataFrame(summary_rows)
-    path_summary = os.path.join(results_dir, "all_results.csv")
+    path_summary = os.path.join(results_dir, f"{modelName}_results.csv")
     df_summary.to_csv(path_summary, index=False)
     print(f"Saved summary → {path_summary}")
 

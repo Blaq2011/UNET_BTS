@@ -197,6 +197,7 @@ def run_experiment(
     train_loader,
     val_loader,
     pipeline_name,
+    modelName,
     device,
     epochs,
     lr,
@@ -213,7 +214,7 @@ def run_experiment(
       avg_epoch_time (float, seconds),
       gpu_mem (float, MB)
     """
-    save_path = f"models/unet_{pipeline_name}.pth"
+    save_path = f"models/{modelName}_{pipeline_name}.pth"
     print(f"\n=== Training UNet on {pipeline_name} ===")
 
     # train_unet  returns a single `history` dict,
