@@ -3,10 +3,25 @@
 INITIAL DOCX
 - Project title and description
 
-    Lightweight U-Net for Brain Tumor Segmentation (BraTS 2020)
+Title: Resource-Conscious 3D U-Net Models for Brain Tumor Segmentation: An
+Ablation Study
 
-    This project implements a U-Net model optimized for low-resource GPUs (NVIDIA GTX 1660 Ti, 6GB VRAM) to perform brain tumor segmentation on the BraTS 2020 dataset.
-    We compare our results against the nnU-Net framework (Fabian Isensee et al., BraTS 2020 winner), highlighting trade-offs between resource usage and segmentation performance.
+Abstract:
+    Accurate brain tumor segmentation is critical for diag-
+nosis and treatment planning, but current state-of-the-art
+methods like nnU-Net are computationally demanding. This
+work explores lightweight 3D U-Net variants tailored for
+resource-limited settings. Using the BraTS 2020 dataset,
+we compared three preprocessing pipelines and conducted
+ablations on baseline and optimized models, incorporat-
+ing residual blocks, attention gates, deep supervision, nor-
+malization refinements, dropout tuning, and class-weighted
+loss. The best model achieved Dice scores of 0.880 (WT),
+0.812 (TC), and 0.691 (ET), showing consistent improve-
+ments over the baseline while still remaining computation-
+ally efficient. These results highlight the trade-off between
+efficiency and absolute accuracy, and point to practical
+strategies for segmentation under limited GPU resources.
 
 2. Project Structure
 
