@@ -284,21 +284,15 @@ UNET_BTS/
 
 #### 5. Results
 
-| Model             | Dice (Whole Tumor) | IoU  | Notes                        |
-| ----------------- | ------------------ | ---- | ---------------------------- |
-| Baseline U-Net    | XX.XX              | XX.X | Small filters, limited GPU   |
-| Optimized U-Net   | XX.XX              | XX.X | With augmentations + dropout |
-| nnU-Net (Fabian+) | \~0.88–0.90        | --   | BraTS 2020 winner            | 
+| Model             | Dice (Whole Tumor)   | Notes                        |
+| ----------------- | ------------------   | ---------------------------- |
+| Baseline U-Net    | 0.867                |  limited GPU   |
+| Optimized U-Net   | 0/990                |  Class-Weighted loss, no dropout |
+| nnU-Net (Fabian+) | \~0.88–0.90          |  BraTS 2020 winner            | 
 
 
 - Qualitative Results
-    (Example figure to be added here)
-
-|Input MRI | Ground Truth | Baseline Prediction | Optimized Prediction |
-| ----------------- | ------------------ | ---- | ---------------------------- |
-| Baseline U-Net    | XX.XX              | XX.X | Small filters, limited GPU   |
-| Optimized U-Net   | XX.XX              | XX.X | With augmentations + dropout |
-| nnU-Net (Fabian+) | \~0.88–0.90        | --   | BraTS 2020 winner            | 
+![P2 optimized U-Net](results/sample_predictions/pred_visual.png)
 
 #### 6. References
 
@@ -320,11 +314,13 @@ UNET_BTS/
 
 [9] [Bastian H. Menze, András Jakab, Stefan Bauer, Jayashree Kalpathy-Cramer, Keyvan Farahani, John Kirby, Yvette Burren, Nicolas Porz, Jens Slotboom, Roland Wiest, and Koen van Leemput. *The multimodal brain tumor image segmentation benchmark (BRATS).* IEEE Transactions on Medical Imaging, 34(10):1993–2024 (2015).](https://pmc.ncbi.nlm.nih.gov/articles/PMC4833122/)
 
-[10] [Yuxin Wu and Kaiming He. *Group normalization.* In ECCV, 2018.](https://arxiv.org/abs/1803.08494)  
+[10][Roey Mechrez, Jacob Goldberger, and Hayit Greenspan.Patch-based segmentation with spatial consistency: Application to ms lesions in brain mri. International Journal of Biomedical Imaging, 2016(1):7952541, 2016.](https://onlinelibrary.wiley.com/doi/10.1155/2016/7952541)
 
-[11] [Jie Hu, Li Shen, and Gang Sun. *Squeeze-and-excitation networks.* In CVPR, 2018, pages 7132–7141.](https://openaccess.thecvf.com/content_cvpr_2018/papers/Hu_Squeeze-and-Excitation_Networks_CVPR_2018_paper.pdf) 
+[11] [Yuxin Wu and Kaiming He. *Group normalization.* In ECCV, 2018.](https://arxiv.org/abs/1803.08494)  
 
-[12] [Fabian Isensee, Paul F. Jaeger, Peter M. Full, Philipp Voll-muth, and Klaus H. Maier-Hein. nnu-net for brain tumor segmentation, 2020.](https://arxiv.org/abs/2011.00848)
+[12] [Jie Hu, Li Shen, and Gang Sun. *Squeeze-and-excitation networks.* In CVPR, 2018, pages 7132–7141.](https://openaccess.thecvf.com/content_cvpr_2018/papers/Hu_Squeeze-and-Excitation_Networks_CVPR_2018_paper.pdf) 
+
+[13] [Fabian Isensee, Paul F. Jaeger, Peter M. Full, Philipp Voll-muth, and Klaus H. Maier-Hein. nnu-net for brain tumor segmentation, 2020.](https://arxiv.org/abs/2011.00848)
 
 
 Note: This implementation is designed for educational purposes under GPU memory constraints. Performance is not expected to match state-of-the-art methods.
