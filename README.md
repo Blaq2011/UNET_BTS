@@ -1,11 +1,11 @@
 # UNET_BTS
 
 INITIAL DOCX
-- Project title and description
+### Project title and description
 
 **Title: Resource-Conscious 3D U-Net Models for Brain Tumor Segmentation: An Ablation Study**
 
-- Abstract:
+1. Abstract:
     Accurate brain tumor segmentation is critical for diagnosis and treatment planning, but current state-of-the-art
 methods like nnU-Net are computationally demanding. This
 work explores lightweight 3D U-Net variants tailored for
