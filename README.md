@@ -167,7 +167,6 @@ UNET_BTS/
     --> Open the main notebook (demo.ipynb)
 
     a. Dataset Preparation
-
         Download the BraTS2020 Training Dataset and place it under data/raw/.
         Example directory structure:
         ``` 
@@ -188,7 +187,6 @@ UNET_BTS/
 
 
     b. Preprocessing and Caching
-
         The preprocessing pipeline ensures consistent input volumes by:
                 - Intensity clipping to remove outliers (0.5th–99.5th percentile).
                 - Cropping to nonzero brain regions with margin.
@@ -204,7 +202,6 @@ UNET_BTS/
 
 
     c. Dataset Pipelines
-
         Each pipeline has a dataset class:
                 - BraTSDatasetP1 (on-the-fly)
                 - BraTSDatasetP2 (cached volumes)
@@ -222,7 +219,6 @@ UNET_BTS/
 
 
     d. Model Training
-
         Two main U-Net architectures are included:
                 - Baseline U-Net (M1): vanilla 3D U-Net.
                 - Optimized U-Net Variants (M2–M5): progressively adding residual connections, attention gates, deep supervision, normalization refinements, dropout tuning, and class-weighted loss.
@@ -233,34 +229,33 @@ UNET_BTS/
                 - Early stopping and learning-rate scheduling.
                 - Saving checkpoints and logs.
                 - Example training call for the optimized model:
-``` 
-df_hist, df_summary = run_train_eval(
-    seeds=[5],
-    pipelines={"P2": (train_loader_P2, val_loader_P2)},
-    model_fn=lambda: UNet3D_Optimized_2(in_ch=4, out_ch=4, base_ch=32, dropout=0, deep_supervision=True),
-    loss_fn_fn=lambda: DiceCELoss(class_weights=torch.tensor([0.10, 0.20, 0.30, 0.40]).to(device)),
-    optimizer_fn=lambda model: torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5),
-    scheduler_fn=lambda opt: torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode="min", factor=0.5, patience=5, min_lr=1e-6),
-    early_stopping=True,
-    epochs=50,
-    patience=10,
-    lr=1e-4,
-    device=device,
-    results_dir="results/model comparison/optimized"
-)
-``` 
+        ``` 
+        df_hist, df_summary = run_train_eval(
+            seeds=[5],
+            pipelines={"P2": (train_loader_P2, val_loader_P2)},
+            model_fn=lambda: UNet3D_Optimized_2(in_ch=4, out_ch=4, base_ch=32, dropout=0, deep_supervision=True),
+            loss_fn_fn=lambda: DiceCELoss(class_weights=torch.tensor([0.10, 0.20, 0.30, 0.40]).to(device)),
+            optimizer_fn=lambda model: torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5),
+            scheduler_fn=lambda opt: torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode="min", factor=0.5, patience=5, min_lr=1e-6),
+            early_stopping=True,
+            epochs=50,
+            patience=10,
+            lr=1e-4,
+            device=device,
+            results_dir="results/model comparison/optimized"
+        )
+        ``` 
 
 
     e. Model Evaluation
-
         - Quantitative metrics: Per-class Dice scores, BraTS composite Dice (WT, TC, ET), and HD95 are logged and saved.
         - Qualitative checks: Consistency of patch sampling across pipelines (patch_consistency_test) and visualization of model inputs (visualize_patient_consistency).
         - Training dynamics: Loss and Dice trajectories can be plotted with plot_model_comparison().
 
 
     f. Visualization of Predictions
-
-        Trained models can be loaded and applied to validation data. Predictions are visualized across axial, coronal, and sagittal slices using visualize_prediction_multiview(). The output figure shows:
+        Trained models can be loaded and applied to validation data. Predictions are visualized across axial, coronal, and sagittal slices using visualize_prediction_multiview(). 
+        The output figure shows:
                 - FLAIR MRI input.
                 - Ground truth segmentation mask.
                 - Predicted segmentation.
@@ -268,7 +263,7 @@ df_hist, df_summary = run_train_eval(
         Classes are color-coded: background (black), non-enhancing core (yellow), edema (blue), and enhancing tumor (red).
 
         Example usage:
-        ``` 
+        '''
         best_ckpt = "models/model comparison/Model2_classweight_P2_s5.pth"
         state_dict = torch.load(best_ckpt, map_location=device, weights_only=False)
 
@@ -277,10 +272,9 @@ df_hist, df_summary = run_train_eval(
         model.to(device)
 
         visualize_prediction_multiview(model, val_loader_P2, device, title="U-Net_P2")
-        ``` 
+        '''
 
     g. Results and Comparisons
-
         - Multiple U-Net variants (M1–M5) were compared using validation Dice scores and training dynamics.
         - Optimized models (M3–M5) demonstrated consistent improvements over the baseline, especially for tumor core (TC).
         - Class weighting (M5) further improved segmentation balance, although enhancing tumor (ET) remained the most challenging region.
