@@ -233,22 +233,22 @@ UNET_BTS/
                 - Early stopping and learning-rate scheduling.
                 - Saving checkpoints and logs.
                 - Example training call for the optimized model:
-        ``` 
-        df_hist, df_summary = run_train_eval(
-            seeds=[5],
-            pipelines={"P2": (train_loader_P2, val_loader_P2)},
-            model_fn=lambda: UNet3D_Optimized_2(in_ch=4, out_ch=4, base_ch=32, dropout=0, deep_supervision=True),
-            loss_fn_fn=lambda: DiceCELoss(class_weights=torch.tensor([0.10, 0.20, 0.30, 0.40]).to(device)),
-            optimizer_fn=lambda model: torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5),
-            scheduler_fn=lambda opt: torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode="min", factor=0.5, patience=5, min_lr=1e-6),
-            early_stopping=True,
-            epochs=50,
-            patience=10,
-            lr=1e-4,
-            device=device,
-            results_dir="results/model comparison/optimized"
-        )
-        ``` 
+``` 
+df_hist, df_summary = run_train_eval(
+    seeds=[5],
+    pipelines={"P2": (train_loader_P2, val_loader_P2)},
+    model_fn=lambda: UNet3D_Optimized_2(in_ch=4, out_ch=4, base_ch=32, dropout=0, deep_supervision=True),
+    loss_fn_fn=lambda: DiceCELoss(class_weights=torch.tensor([0.10, 0.20, 0.30, 0.40]).to(device)),
+    optimizer_fn=lambda model: torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5),
+    scheduler_fn=lambda opt: torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode="min", factor=0.5, patience=5, min_lr=1e-6),
+    early_stopping=True,
+    epochs=50,
+    patience=10,
+    lr=1e-4,
+    device=device,
+    results_dir="results/model comparison/optimized"
+)
+``` 
 
 
     e. Model Evaluation
