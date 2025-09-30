@@ -5,7 +5,7 @@ INITIAL DOCX
 
 **Title: Resource-Conscious 3D U-Net Models for Brain Tumor Segmentation: An Ablation Study**
 
-1. Abstract:
+#### 1. Abstract:
     Accurate brain tumor segmentation is critical for diagnosis and treatment planning, but current state-of-the-art
 methods like nnU-Net are computationally demanding. This
 work explores lightweight 3D U-Net variants tailored for
@@ -21,7 +21,7 @@ ally efficient. These results highlight the trade-off between
 efficiency and absolute accuracy, and point to practical
 strategies for segmentation under limited GPU resources.
 
-2. Project Structure
+#### 2. Project Structure
  ```
 UNET_BTS/
 ├── .gitattributes
@@ -146,7 +146,7 @@ UNET_BTS/
 
 
 
-3. Setup
+#### 3. Setup
 
     a. Clone repo:
         - git clone https://github.com/Blaq2011/UNET_BTS.git
@@ -162,7 +162,7 @@ UNET_BTS/
         - Preprocessed 2D slices are saved automatically in data/processed/cache
 
 
-4. Usage
+#### 4. Usage
     - Open the main notebook (demo.ipynb) and run all cells <-- TO BE CHECKED
 
 
@@ -171,7 +171,7 @@ UNET_BTS/
 
 
 
-5. Results
+#### 5. Results
 
 <!-- | Model             | Dice (Whole Tumor) | IoU  | Notes                        |
 | ----------------- | ------------------ | ---- | ---------------------------- |
@@ -185,53 +185,41 @@ UNET_BTS/
 
     Input MRI | Ground Truth | Baseline Prediction | Optimized Prediction -->
 
-6. References
+#### 6. References
 
-[1] Mohammad Havaei, Nicolas Guizard, Nicolas Chapados,
-and Yoshua Bengio. Brain tumor segmentation with deep
-neural networks. Medical Image Analysis, 35:18–31, 2017.
-[2] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
-Deep residual learning for image recognition. In Proceed-
-ings of the IEEE Conference on Computer Vision and Pattern
-Recognition, pages 770–778, 2016.
-[3] Jie Hu, Li Shen, and Gang Sun. Squeeze-and-excitation
-networks. In Proceedings of the IEEE/CVF Conference on
-Computer Vision and Pattern Recognition (CVPR), pages
-7132–7141, 2018.
-[4] Fabian Isensee, Paul F. Jaeger, Peter M. Full, Philipp Voll-
-muth, and Klaus H. Maier-Hein. nnu-net for brain tumor
-segmentation, 2020.
-[5] Fabian Isensee, Paul F. Jaeger, Simon A. A. Kohl, Jens Pe-
-tersen, and Klaus H. Maier-Hein. nnu-net: a self-configuring
-method for deep learning-based biomedical image segmen-
-tation. Nature Methods, 18(2):203–211, 2021.
-[6] Chen-Yu Lee, Saining Xie, Patrick Gallagher, Zhengyou
-Zhang, and Zhuowen Tu. Deeply-supervised nets. In Pro-
-ceedings of the 18th International Conference on Artificial
-Intelligence and Statistics, pages 562–570, 2015.
-[7] Bastian H. Menze, ´Andras Jakab, Stefan Bauer, Jayashree
-Kalpathy-Cramer, Keyvan Farahani, John Kirby, Yvette Bur-
-ren, Nicolas Porz, Jens Slotboom, Roland Wiest, and Koen
-van Leemput. The multimodal brain tumor image segmen-
-tation benchmark (brats). IEEE Transactions on Medical
-Imaging, 34(10):1993–2024, 2015.
-[8] Ozan Oktay, Jo Schlemper, Lo¨ıc Le Folgoc, Matthew
-Lee, Mattias P. Heinrich, Kazunari Misawa, Kensaku Mori,
-Steven McDonagh, Nils Y. Hammerla, Bernhard Kainz, Ben
-Glocker, and Daniel Rueckert. Attention u-net: Learn-
-ing where to look for the pancreas. arXiv preprint
-arXiv:1804.03999, 2018.
-[9] Olaf Ronneberger, Philipp Fischer, and Thomas Brox. U-net:
-Convolutional networks for biomedical image segmentation.
-arXiv preprint arXiv:1505.04597, 2015.
-[10] Nitish Srivastava, Geoffrey Hinton, Alex Krizhevsky, Ilya
-Sutskever, and Ruslan Salakhutdinov. Dropout: A simple
-way to prevent neural networks from overfitting. Journal of
-Machine Learning Research, 15(1):1929–1958, 2014.
-[11] Yuxin Wu and Kaiming He. Group normalization. In Pro-
-ceedings of the European Conference on Computer Vision
-(ECCV), volume 11217 of Lecture Notes in Computer Sci-
-ence, pages 3–19. Springer, Cham, 2018.
+[1] [Olaf Ronneberger, Philipp Fischer, and Thomas Brox. *U-Net: Convolutional networks for biomedical image segmentation.* arXiv preprint arXiv:1505.04597 (2015). ] ( https://arxiv.org/abs/1505.04597)  
+
+[2] Özgün Çiçek, Ahmed Abdulkadir, Soeren S. Lienkamp, Thomas Brox, and Olaf Ronneberger. *3D U-Net: Learning dense volumetric segmentation from sparse annotation.* In MICCAI, 2016.  
+> https://arxiv.org/abs/1606.06650  
+
+[3] Fabian Isensee, Paul F. Jaeger, Simon A. A. Kohl, Jens Petersen, and Klaus H. Maier-Hein. *nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation.* Nature Methods, 18(2):203–211 (2021).  
+> https://www.nature.com/articles/s41592-020-01008-z :contentReference[oaicite:0]{index=0}  
+
+[4] Mohammad Havaei, Nicolas Guizard, Nicolas Chapados, and Yoshua Bengio. *Brain tumor segmentation with deep neural networks.* Medical Image Analysis, 35:18–31 (2017).  
+> https://arxiv.org/abs/1505.03540 :contentReference[oaicite:1]{index=1}  
+> DOI: 10.1016/j.media.2016.05.004 :contentReference[oaicite:2]{index=2}  
+
+[5] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. *Deep residual learning for image recognition.* In CVPR, 2016.  
+> https://www.cv-foundation.org/openaccess/content_cvpr_2016/html/He_Deep_Residual_Learning_CVPR_2016_paper.html  
+
+[6] Nitish Srivastava, Geoffrey Hinton, Alex Krizhevsky, Ilya Sutskever, and Ruslan Salakhutdinov. *Dropout: A simple way to prevent neural networks from overfitting.* Journal of Machine Learning Research, 15(1):1929–1958 (2014).  
+> http://jmlr.org/papers/v15/srivastava14a.html  
+
+[7] Ozan Oktay, Jo Schlemper, Loïc Le Folgoc, Matthew Lee, Mattias P. Heinrich, Kazunari Misawa, Kensaku Mori, Steven McDonagh, Nils Y. Hammerla, Bernhard Kainz, Ben Glocker, and Daniel Rueckert. *Attention U-Net: Learning where to look for the pancreas.* arXiv preprint arXiv:1804.03999 (2018).  
+> https://arxiv.org/abs/1804.03999  
+
+[8] Chen-Yu Lee, Saining Xie, Patrick Gallagher, Zhengyou Zhang, and Zhuowen Tu. *Deeply-supervised nets.* In AISTATS (2015).  
+> https://proceedings.mlr.press/v38/lee15.html  
+
+[9] Bastian H. Menze, András Jakab, Stefan Bauer, Jayashree Kalpathy-Cramer, Keyvan Farahani, John Kirby, Yvette Burren, Nicolas Porz, Jens Slotboom, Roland Wiest, and Koen van Leemput. *The multimodal brain tumor image segmentation benchmark (BRATS).* IEEE Transactions on Medical Imaging, 34(10):1993–2024 (2015).  
+> https://ieeexplore.ieee.org/document/7068013  
+
+[10] Yuxin Wu and Kaiming He. *Group normalization.* In ECCV, 2018.  
+> https://arxiv.org/abs/1803.08494  
+
+[11] Jie Hu, Li Shen, and Gang Sun. *Squeeze-and-excitation networks.* In CVPR, 2018, pages 7132–7141.  
+> https://openaccess.thecvf.com/content_cvpr_2018/html/Hu_Squeeze-and-Excitation_Networks_CVPR_2018_paper.html  
+18.
 
 
 Note: This implementation is designed for educational purposes under GPU memory constraints. Performance is not expected to match state-of-the-art methods.
