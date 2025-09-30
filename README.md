@@ -228,7 +228,8 @@ UNET_BTS/
                 - Loss computation (Dice + Cross-Entropy).
                 - Early stopping and learning-rate scheduling.
                 - Saving checkpoints and logs.
-                - Example training call for the optimized model:
+        
+        Example training call for the optimized model:
         ``` 
         df_hist, df_summary = run_train_eval(
             seeds=[5],
