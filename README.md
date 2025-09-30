@@ -174,27 +174,29 @@ UNET_BTS/
 
 #### 5. Results
 
-<!-- | Model             | Dice (Whole Tumor) | IoU  | Notes                        |
+| Model             | Dice (Whole Tumor) | IoU  | Notes                        |
 | ----------------- | ------------------ | ---- | ---------------------------- |
 | Baseline U-Net    | XX.XX              | XX.X | Small filters, limited GPU   |
 | Optimized U-Net   | XX.XX              | XX.X | With augmentations + dropout |
-| nnU-Net (Fabian+) | \~0.88–0.90        | --   | BraTS 2020 winner            | -->
+| nnU-Net (Fabian+) | \~0.88–0.90        | --   | BraTS 2020 winner            | 
 
 
-<!-- Qualitative Results
+- Qualitative Results
     (Example figure to be added here)
 
-    Input MRI | Ground Truth | Baseline Prediction | Optimized Prediction -->
+|Input MRI | Ground Truth | Baseline Prediction | Optimized Prediction |
+| ----------------- | ------------------ | ---- | ---------------------------- |
+| Baseline U-Net    | XX.XX              | XX.X | Small filters, limited GPU   |
+| Optimized U-Net   | XX.XX              | XX.X | With augmentations + dropout |
+| nnU-Net (Fabian+) | \~0.88–0.90        | --   | BraTS 2020 winner            | 
 
 #### 6. References
 
-[1][Olaf Ronneberger, Philipp Fischer, and Thomas Brox. *U-Net: Convolutional networks for biomedical image segmentation.* arXiv preprint arXiv:1505.04597 (2015). ] (https://arxiv.org/abs/1505.04597)  
+[1] [Olaf Ronneberger, Philipp Fischer, and Thomas Brox. *U-Net: Convolutional networks for biomedical image segmentation.* arXiv preprint arXiv:1505.04597 (2015).](https://arxiv.org/abs/1505.04597)  
 
-[2] Özgün Çiçek, Ahmed Abdulkadir, Soeren S. Lienkamp, Thomas Brox, and Olaf Ronneberger. *3D U-Net: Learning dense volumetric segmentation from sparse annotation.* In MICCAI, 2016.  
-> https://arxiv.org/abs/1606.06650  
+[2] [Özgün Çiçek, Ahmed Abdulkadir, Soeren S. Lienkamp, Thomas Brox, and Olaf Ronneberger. *3D U-Net: Learning dense volumetric segmentation from sparse annotation.* In MICCAI, 2016.](https://arxiv.org/abs/1606.06650)  
 
-[3] Fabian Isensee, Paul F. Jaeger, Simon A. A. Kohl, Jens Petersen, and Klaus H. Maier-Hein. *nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation.* Nature Methods, 18(2):203–211 (2021).  
-> https://www.nature.com/articles/s41592-020-01008-z :contentReference[oaicite:0]{index=0}  
+[3] [Fabian Isensee, Paul F. Jaeger, Simon A. A. Kohl, Jens Petersen, and Klaus H. Maier-Hein. *nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation.* Nature Methods, 18(2):203–211 (2021).](https://www.nature.com/articles/s41592-020-01008-z) 
 
 [4] Mohammad Havaei, Nicolas Guizard, Nicolas Chapados, and Yoshua Bengio. *Brain tumor segmentation with deep neural networks.* Medical Image Analysis, 35:18–31 (2017).  
 > https://arxiv.org/abs/1505.03540 :contentReference[oaicite:1]{index=1}  
