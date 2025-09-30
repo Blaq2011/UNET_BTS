@@ -3,9 +3,9 @@
 INITIAL DOCX
 - Project title and description
 
-Title: Resource-Conscious 3D U-Net Models for Brain Tumor Segmentation: An Ablation Study
+**Title: Resource-Conscious 3D U-Net Models for Brain Tumor Segmentation: An Ablation Study**
 
-Abstract:
+- Abstract:
     Accurate brain tumor segmentation is critical for diagnosis and treatment planning, but current state-of-the-art
 methods like nnU-Net are computationally demanding. This
 work explores lightweight 3D U-Net variants tailored for
@@ -22,132 +22,127 @@ efficiency and absolute accuracy, and point to practical
 strategies for segmentation under limited GPU resources.
 
 2. Project Structure
-
+ ```
 UNET_BTS/
 ├── .gitattributes
 ├── .gitignore
 ├── demo.ipynb
 ├── README.md
 ├── requirements.txt
-
-|   
-└── .ipynb_checkpoints/
-├── demo-checkpoint.ipynb
-├── README-checkpoint.md
-├── requirements-checkpoint.txt
-├── test-checkpoint.ipynb
-└── UNET Test-checkpoint.ipynb
-|       
-+---data                                                                    <--#Git Ignored
-|   +---processed
-|   |   \---cache
-|   \---raw
-+---models
-|   +---.ipynb_checkpoints
-|   +---model comparison
-|   |       Model2_noDrop_P2_s5.pth
-|   |       optModel1_classweight_P2_s5.pth
-|   |       
-|   \---pipeline abalation
-|           unet_P1_s0.pth
-|           unet_P1_s1.pth
-|           unet_P1_s2.pth
-|           unet_P2_s0.pth
-|           unet_P2_s1.pth
-|           unet_P2_s2.pth
-|           unet_P3_s0.pth
-|           unet_P3_s1.pth
-|           unet_P3_s2.pth
-|           
-+---results
-|   +---.ipynb_checkpoints
-|   |       all_pipelines_history-checkpoint.csv
-|   |       all_results-checkpoint.csv
-|   |       P1_history_0-checkpoint.csv
-|   |       
-|   +---Images
-|   |   \---report images
-|   |           Allpipelines_TrainVal_loss.png
-|   |           ModelComparison1.png
-|   |           pipelines visuals.png
-|   |           
-|   +---model comparison
-|   |   +---base
-|   |   |       all_pipelines_history.csv
-|   |   |       all_results.csv
-|   |   |       P2_history_5.csv
-|   |   |       
-|   |   \---optimized
-|   |       +---model1
-|   |       |   |   Model_1_history.csv
-|   |       |   |   Model_1_P2_history_5.csv
-|   |       |   |   Model_1_results.csv
-|   |       |   |   
-|   |       |   \---.ipynb_checkpoints
-|   |       |           Model_1_history-checkpoint.csv
-|   |       |           Model_1_P2_history_5-checkpoint.csv
-|   |       |           Model_1_results-checkpoint.csv
-|   |       |           
-|   |       +---model2
-|   |       |       Model_2_all_results.csv
-|   |       |       Model_2_history.csv
-|   |       |       Model_2_P2_history_5.csv
-|   |       |       
-|   |       +---model2_Nodropout
-|   |       |       Model_2_Nodropout_all_results.csv
-|   |       |       Model_2_Nodropout_history.csv
-|   |       |       Model_2_Nodropout_P2_history_5.csv
-|   |       |       
-|   |       \---model2_Nodropout_classWeights
-|   |               Model2_classweight_history.csv
-|   |               Model2_classweight_results.csv
-|   |               P2_history_5.csv
-|   |               
-|   +---pipeline ablation
-|   |       all_pipelines_history.csv
-|   |       all_results.csv
-|   |       P1_history_0.csv
-|   |       P1_history_1.csv
-|   |       P1_history_2.csv
-|   |       P2_history_0.csv
-|   |       P2_history_1.csv
-|   |       P2_history_2.csv
-|   |       P3_history_0.csv
-|   |       P3_history_1.csv
-|   |       P3_history_2.csv
-|   |       
-|   \---sample_predictions
-\---utils
-    |   data_loader.py
-    |   metrics.py
-    |   run_train_eval.py
-    |   seeding.py
-    |   train_unet.py
-    |   unet.py
-    |   visualize.py
-    |   
-    +---.ipynb_checkpoints
-    |       data_loader-checkpoint.py
-    |       evaluate_unet-checkpoint.py
-    |       metrics-checkpoint.py
-    |       run_train_eval-checkpoint.py
-    |       seeding-checkpoint.py
-    |       train_unet-checkpoint.py
-    |       unet-checkpoint.py
-    |       visualize-checkpoint.py
-    |       
-    \---__pycache__
-            ablation_loader.cpython-312.pyc
-            data_loader.cpython-312.pyc
-            evaluate_unet.cpython-312.pyc
-            metrics.cpython-312.pyc
-            run_train_eval.cpython-312.pyc
-            seeding.cpython-312.pyc
-            train_unet.cpython-312.pyc
-            unet.cpython-312.pyc
-            unet_test.cpython-312.pyc
-            visualize.cpython-312.pyc
-            
+│
+├── .ipynb_checkpoints/ # Jupyter auto-saves
+│ ├── demo-checkpoint.ipynb
+│ ├── README-checkpoint.md
+│ ├── requirements-checkpoint.txt
+│ ├── test-checkpoint.ipynb
+│ └── UNET Test-checkpoint.ipynb
+│
+├── data/ # (Git Ignored)
+│ ├── processed/
+│ │ └── cache/
+│ └── raw/
+│
+├── models/
+│ ├── .ipynb_checkpoints/
+│ ├── model comparison/
+│ │ ├── Model2_noDrop_P2_s5.pth
+│ │ └── optModel1_classweight_P2_s5.pth
+│ └── pipeline ablation/
+│ ├── unet_P1_s0.pth
+│ ├── unet_P1_s1.pth
+│ ├── unet_P1_s2.pth
+│ ├── unet_P2_s0.pth
+│ ├── unet_P2_s1.pth
+│ ├── unet_P2_s2.pth
+│ ├── unet_P3_s0.pth
+│ ├── unet_P3_s1.pth
+│ └── unet_P3_s2.pth
+│
+├── results/
+│ ├── .ipynb_checkpoints/
+│ │ ├── all_pipelines_history-checkpoint.csv
+│ │ ├── all_results-checkpoint.csv
+│ │ └── P1_history_0-checkpoint.csv
+│ │
+│ ├── Images/
+│ │ └── report images/
+│ │ ├── Allpipelines_TrainVal_loss.png
+│ │ ├── ModelComparison1.png
+│ │ └── pipelines visuals.png
+│ │
+│ ├── model comparison/
+│ │ ├── base/
+│ │ │ ├── all_pipelines_history.csv
+│ │ │ ├── all_results.csv
+│ │ │ └── P2_history_5.csv
+│ │ └── optimized/
+│ │ ├── model1/
+│ │ │ ├── Model_1_history.csv
+│ │ │ ├── Model_1_P2_history_5.csv
+│ │ │ ├── Model_1_results.csv
+│ │ │ └── .ipynb_checkpoints/
+│ │ │ ├── Model_1_history-checkpoint.csv
+│ │ │ ├── Model_1_P2_history_5-checkpoint.csv
+│ │ │ └── Model_1_results-checkpoint.csv
+│ │ ├── model2/
+│ │ │ ├── Model_2_all_results.csv
+│ │ │ ├── Model_2_history.csv
+│ │ │ └── Model_2_P2_history_5.csv
+│ │ ├── model2_Nodropout/
+│ │ │ ├── Model_2_Nodropout_all_results.csv
+│ │ │ ├── Model_2_Nodropout_history.csv
+│ │ │ └── Model_2_Nodropout_P2_history_5.csv
+│ │ └── model2_Nodropout_classWeights/
+│ │ ├── Model2_classweight_history.csv
+│ │ ├── Model2_classweight_results.csv
+│ │ └── P2_history_5.csv
+│ │
+│ ├── pipeline ablation/
+│ │ ├── all_pipelines_history.csv
+│ │ ├── all_results.csv
+│ │ ├── P1_history_0.csv
+│ │ ├── P1_history_1.csv
+│ │ ├── P1_history_2.csv
+│ │ ├── P2_history_0.csv
+│ │ ├── P2_history_1.csv
+│ │ ├── P2_history_2.csv
+│ │ ├── P3_history_0.csv
+│ │ ├── P3_history_1.csv
+│ │ └── P3_history_2.csv
+│ │
+│ └── sample_predictions/
+│
+└── utils/
+├── data_loader.py
+├── metrics.py
+├── run_train_eval.py
+├── seeding.py
+├── train_unet.py
+├── unet.py
+├── visualize.py
+│
+├── .ipynb_checkpoints/
+│ ├── data_loader-checkpoint.py
+│ ├── evaluate_unet-checkpoint.py
+│ ├── metrics-checkpoint.py
+│ ├── run_train_eval-checkpoint.py
+│ ├── seeding-checkpoint.py
+│ ├── train_unet-checkpoint.py
+│ ├── unet-checkpoint.py
+│ └── visualize-checkpoint.py
+│
+└── pycache/
+├── ablation_loader.cpython-312.pyc
+├── data_loader.cpython-312.pyc
+├── evaluate_unet.cpython-312.pyc
+├── metrics.cpython-312.pyc
+├── run_train_eval.cpython-312.pyc
+├── seeding.cpython-312.pyc
+├── train_unet.cpython-312.pyc
+├── unet.cpython-312.pyc
+├── unet_test.cpython-312.pyc
+└── visualize.cpython-312.pyc
+```            
 
 
 
