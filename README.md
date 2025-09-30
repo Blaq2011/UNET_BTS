@@ -166,7 +166,7 @@ UNET_BTS/
 #### 4. Usage
 --> Open the main notebook (demo.ipynb)
 
-A. Dataset Preparation
+a. Dataset Preparation
 
 Download the BraTS2020 Training Dataset and place it under data/raw/.
 Example directory structure:
@@ -187,28 +187,28 @@ data/
 Use get_brats_filepaths() to collect file paths for all patients, then apply split_brats_dataset() to generate training/validation splits (default 80/20).
 
 
-B. Preprocessing and Caching
+b. Preprocessing and Caching
 
 The preprocessing pipeline ensures consistent input volumes by:
-    -Intensity clipping to remove outliers (0.5th–99.5th percentile).
-    -Cropping to nonzero brain regions with margin.
-    -Resampling volumes and masks to a fixed shape of 128×128×128.
-    -Normalizing each modality within the brain foreground.
+    - Intensity clipping to remove outliers (0.5th–99.5th percentile).
+    - Cropping to nonzero brain regions with margin.
+    - Resampling volumes and masks to a fixed shape of 128×128×128.
+    - Normalizing each modality within the brain foreground.
 
 For efficiency, preprocessed data can be cached using build_cache(). Three caching strategies (pipelines) are supported:
-    -P1: On-the-fly preprocessing during training.
-    -P2: Cached full volumes with patch extraction at runtime.
-    -P3: Cached random patches saved to disk.
+    - P1: On-the-fly preprocessing during training.
+    - P2: Cached full volumes with patch extraction at runtime.
+    - P3: Cached random patches saved to disk.
 
 Caching improves reproducibility and speeds up training by avoiding repeated preprocessing
 
 
-C. Dataset Pipelines
+c. Dataset Pipelines
 
 Each pipeline has a dataset class:
-    -BraTSDatasetP1 (on-the-fly)
-    -BraTSDatasetP2 (cached volumes)
-    -BraTSDatasetP3 (cached patches)
+    - BraTSDatasetP1 (on-the-fly)
+    - BraTSDatasetP2 (cached volumes)
+    - BraTSDatasetP3 (cached patches)
 
 Create datasets and wrap them in PyTorch DataLoaders for batch training. For example, P2 was often used for experiments due to its balance of efficiency and consistency:
 
@@ -224,15 +224,15 @@ val_loader_P2   = DataLoader(val_dataset_P2,   batch_size=1, shuffle=False, num_
 D. Model Training
 
 Two main U-Net architectures are included:
-    -Baseline U-Net (M1): vanilla 3D U-Net.
-    -Optimized U-Net Variants (M2–M5): progressively adding residual connections, attention gates, deep supervision, normalization refinements, dropout tuning, and class-weighted loss.
+    - Baseline U-Net (M1): vanilla 3D U-Net.
+    - Optimized U-Net Variants (M2–M5): progressively adding residual connections, attention gates, deep supervision, normalization refinements, dropout tuning, and class-weighted loss.
 
 Training is performed using run_train_eval(), which handles:
-    -Training/validation loops.
-    -Loss computation (Dice + Cross-Entropy).
-    -Early stopping and learning-rate scheduling.
-    -Saving checkpoints and logs.
-    -Example training call for the optimized model:
+    - Training/validation loops.
+    - Loss computation (Dice + Cross-Entropy).
+    - Early stopping and learning-rate scheduling.
+    - Saving checkpoints and logs.
+    - Example training call for the optimized model:
 ``` 
 df_hist, df_summary = run_train_eval(
     seeds=[5],
@@ -261,9 +261,9 @@ E. Model Evaluation
 F. Visualization of Predictions
 
 Trained models can be loaded and applied to validation data. Predictions are visualized across axial, coronal, and sagittal slices using visualize_prediction_multiview(). The output figure shows:
-    -FLAIR MRI input.
-    -Ground truth segmentation mask.
-    -Predicted segmentation.
+    - FLAIR MRI input.
+    - Ground truth segmentation mask.
+    - Predicted segmentation.
 
 Classes are color-coded: background (black), non-enhancing core (yellow), edema (blue), and enhancing tumor (red).
 
@@ -281,9 +281,9 @@ visualize_prediction_multiview(model, val_loader_P2, device, title="U-Net_P2")
 
 G. Results and Comparisons
 
-Multiple U-Net variants (M1–M5) were compared using validation Dice scores and training dynamics.
-Optimized models (M3–M5) demonstrated consistent improvements over the baseline, especially for tumor core (TC).
-Class weighting (M5) further improved segmentation balance, although enhancing tumor (ET) remained the most challenging region.
+- Multiple U-Net variants (M1–M5) were compared using validation Dice scores and training dynamics.
+- Optimized models (M3–M5) demonstrated consistent improvements over the baseline, especially for tumor core (TC).
+- Class weighting (M5) further improved segmentation balance, although enhancing tumor (ET) remained the most challenging region.
 
 
 
