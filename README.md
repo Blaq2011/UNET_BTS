@@ -6,7 +6,8 @@ INITIAL DOCX
 **Title: Resource-Conscious 3D U-Net Models for Brain Tumor Segmentation: An Ablation Study**
 
 #### 1. Abstract:
-    Accurate brain tumor segmentation is critical for diagnosis and treatment planning, but current state-of-the-art
+
+Accurate brain tumor segmentation is critical for diagnosis and treatment planning, but current state-of-the-art
 methods like nnU-Net are computationally demanding. This
 work explores lightweight 3D U-Net variants tailored for
 resource-limited settings. Using the BraTS 2020 dataset,
@@ -163,7 +164,7 @@ UNET_BTS/
 
 
 #### 4. Usage
-    - Open the main notebook (demo.ipynb) and run all cells <-- TO BE CHECKED
+- Open the main notebook (demo.ipynb) and run all cells <-- TO BE CHECKED
 
 
 
@@ -187,7 +188,7 @@ UNET_BTS/
 
 #### 6. References
 
-[1] [Olaf Ronneberger, Philipp Fischer, and Thomas Brox. *U-Net: Convolutional networks for biomedical image segmentation.* arXiv preprint arXiv:1505.04597 (2015). ] ( https://arxiv.org/abs/1505.04597)  
+[1][Olaf Ronneberger, Philipp Fischer, and Thomas Brox. *U-Net: Convolutional networks for biomedical image segmentation.* arXiv preprint arXiv:1505.04597 (2015). ] (https://arxiv.org/abs/1505.04597)  
 
 [2] Özgün Çiçek, Ahmed Abdulkadir, Soeren S. Lienkamp, Thomas Brox, and Olaf Ronneberger. *3D U-Net: Learning dense volumetric segmentation from sparse annotation.* In MICCAI, 2016.  
 > https://arxiv.org/abs/1606.06650  
