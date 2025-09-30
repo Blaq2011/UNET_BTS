@@ -12,5 +12,4 @@ scipy==1.15.3
 tqdm==4.66.4
 pandas
 seaborn
-sklearn
 gc

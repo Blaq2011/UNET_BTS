@@ -164,11 +164,126 @@ UNET_BTS/
 
 
 #### 4. Usage
-- Open the main notebook (demo.ipynb) and run all cells <-- TO BE CHECKED
+--> Open the main notebook (demo.ipynb)
+
+A. Dataset Preparation
+
+Download the BraTS2020 Training Dataset and place it under data/raw/.
+Example directory structure:
+``` 
+data/
+  raw/
+    BraTS2020_TrainingData/
+      MICCAI_BraTS2020_TrainingData/
+        BraTS20_Training_001/
+          BraTS20_Training_001_flair.nii
+          BraTS20_Training_001_t1.nii
+          BraTS20_Training_001_t1ce.nii
+          BraTS20_Training_001_t2.nii
+          BraTS20_Training_001_seg.nii
+        ...
+
+``` 
+Use get_brats_filepaths() to collect file paths for all patients, then apply split_brats_dataset() to generate training/validation splits (default 80/20).
 
 
+B. Preprocessing and Caching
+
+The preprocessing pipeline ensures consistent input volumes by:
+    -Intensity clipping to remove outliers (0.5th–99.5th percentile).
+    -Cropping to nonzero brain regions with margin.
+    -Resampling volumes and masks to a fixed shape of 128×128×128.
+    -Normalizing each modality within the brain foreground.
+
+For efficiency, preprocessed data can be cached using build_cache(). Three caching strategies (pipelines) are supported:
+    -P1: On-the-fly preprocessing during training.
+    -P2: Cached full volumes with patch extraction at runtime.
+    -P3: Cached random patches saved to disk.
+
+Caching improves reproducibility and speeds up training by avoiding repeated preprocessing
 
 
+C. Dataset Pipelines
+
+Each pipeline has a dataset class:
+    -BraTSDatasetP1 (on-the-fly)
+    -BraTSDatasetP2 (cached volumes)
+    -BraTSDatasetP3 (cached patches)
+
+Create datasets and wrap them in PyTorch DataLoaders for batch training. For example, P2 was often used for experiments due to its balance of efficiency and consistency:
+
+``` 
+train_dataset_P2 = BraTSDatasetP2(cache_dir="data/processed/cache/train/volumes", patient_ids=train_pids, patch_size=(96,96,96), augment=True)
+val_dataset_P2   = BraTSDatasetP2(cache_dir="data/processed/cache/val/volumes",   patient_ids=val_pids,   patch_size=(96,96,96), augment=False)
+
+train_loader_P2 = DataLoader(train_dataset_P2, batch_size=1, shuffle=True, num_workers=4, pin_memory=True)
+val_loader_P2   = DataLoader(val_dataset_P2,   batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
+``` 
+
+
+D. Model Training
+
+Two main U-Net architectures are included:
+    -Baseline U-Net (M1): vanilla 3D U-Net.
+    -Optimized U-Net Variants (M2–M5): progressively adding residual connections, attention gates, deep supervision, normalization refinements, dropout tuning, and class-weighted loss.
+
+Training is performed using run_train_eval(), which handles:
+    -Training/validation loops.
+    -Loss computation (Dice + Cross-Entropy).
+    -Early stopping and learning-rate scheduling.
+    -Saving checkpoints and logs.
+    -Example training call for the optimized model:
+``` 
+df_hist, df_summary = run_train_eval(
+    seeds=[5],
+    pipelines={"P2": (train_loader_P2, val_loader_P2)},
+    model_fn=lambda: UNet3D_Optimized_2(in_ch=4, out_ch=4, base_ch=32, dropout=0, deep_supervision=True),
+    loss_fn_fn=lambda: DiceCELoss(class_weights=torch.tensor([0.10, 0.20, 0.30, 0.40]).to(device)),
+    optimizer_fn=lambda model: torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5),
+    scheduler_fn=lambda opt: torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode="min", factor=0.5, patience=5, min_lr=1e-6),
+    early_stopping=True,
+    epochs=50,
+    patience=10,
+    lr=1e-4,
+    device=device,
+    results_dir="results/model comparison/optimized"
+)
+``` 
+
+
+E. Model Evaluation
+
+- Quantitative metrics: Per-class Dice scores, BraTS composite Dice (WT, TC, ET), and HD95 are logged and saved.
+- Qualitative checks: Consistency of patch sampling across pipelines (patch_consistency_test) and visualization of model inputs (visualize_patient_consistency).
+- Training dynamics: Loss and Dice trajectories can be plotted with plot_model_comparison().
+
+
+F. Visualization of Predictions
+
+Trained models can be loaded and applied to validation data. Predictions are visualized across axial, coronal, and sagittal slices using visualize_prediction_multiview(). The output figure shows:
+    -FLAIR MRI input.
+    -Ground truth segmentation mask.
+    -Predicted segmentation.
+
+Classes are color-coded: background (black), non-enhancing core (yellow), edema (blue), and enhancing tumor (red).
+
+Example usage:
+``` 
+best_ckpt = "models/model comparison/Model2_classweight_P2_s5.pth"
+state_dict = torch.load(best_ckpt, map_location=device, weights_only=False)
+
+model = UNet3D_Optimized_2(in_ch=4, out_ch=4, base_ch=32, dropout=0, deep_supervision=True)
+model.load_state_dict(state_dict)
+model.to(device)
+
+visualize_prediction_multiview(model, val_loader_P2, device, title="U-Net_P2")
+``` 
+
+G. Results and Comparisons
+
+Multiple U-Net variants (M1–M5) were compared using validation Dice scores and training dynamics.
+Optimized models (M3–M5) demonstrated consistent improvements over the baseline, especially for tumor core (TC).
+Class weighting (M5) further improved segmentation balance, although enhancing tumor (ET) remained the most challenging region.
 
 
 

@@ -16,7 +16,6 @@ def set_global_seed(seed: int):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    # For hash-based ops (python >=3.3)
     os.environ["PYTHONHASHSEED"] = str(seed)
 
     print(f"Global seed set to {seed}")
