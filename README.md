@@ -23,19 +23,20 @@ strategies for segmentation under limited GPU resources.
 
 2. Project Structure
 
-UNET_BTS
-|   .gitattributes
-|   .gitignore
-|   demo.ipynb
-|   README.md
-|   requirements.txt
+UNET_BTS/
+├── .gitattributes
+├── .gitignore
+├── demo.ipynb
+├── README.md
+├── requirements.txt
+
 |   
-+---.ipynb_checkpoints                                          
-|       demo-checkpoint.ipynb
-|       README-checkpoint.md
-|       requirements-checkpoint.txt
-|       test-checkpoint.ipynb
-|       UNET Test-checkpoint.ipynb
+└── .ipynb_checkpoints/
+├── demo-checkpoint.ipynb
+├── README-checkpoint.md
+├── requirements-checkpoint.txt
+├── test-checkpoint.ipynb
+└── UNET Test-checkpoint.ipynb
 |       
 +---data                                                                    <--#Git Ignored
 |   +---processed
