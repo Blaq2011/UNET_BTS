@@ -160,7 +160,7 @@ UNET_BTS/
     d. Get Dataset
         - Download the BraTS 2020 dataset from: https://www.kaggle.com/datasets/awsaf49/brats20-dataset-training-validation?resource=download-directory 
         - Extract dataset in data/raw/.
-        - Preprocessed 2D slices are saved automatically in data/processed/cache
+        - Preprocessed data are saved automatically in data/processed/cache
 
 
 #### 4. Usage
