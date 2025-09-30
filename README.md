@@ -198,31 +198,23 @@ UNET_BTS/
 
 [3] [Fabian Isensee, Paul F. Jaeger, Simon A. A. Kohl, Jens Petersen, and Klaus H. Maier-Hein. *nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation.* Nature Methods, 18(2):203–211 (2021).](https://www.nature.com/articles/s41592-020-01008-z) 
 
-[4] Mohammad Havaei, Nicolas Guizard, Nicolas Chapados, and Yoshua Bengio. *Brain tumor segmentation with deep neural networks.* Medical Image Analysis, 35:18–31 (2017).  
-> https://arxiv.org/abs/1505.03540 :contentReference[oaicite:1]{index=1}  
-> DOI: 10.1016/j.media.2016.05.004 :contentReference[oaicite:2]{index=2}  
+[4] [Mohammad Havaei, Nicolas Guizard, Nicolas Chapados, and Yoshua Bengio. *Brain tumor segmentation with deep neural networks.* Medical Image Analysis, 35:18–31 (2017).](https://arxiv.org/abs/1505.03540)
 
-[5] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. *Deep residual learning for image recognition.* In CVPR, 2016.  
-> https://www.cv-foundation.org/openaccess/content_cvpr_2016/html/He_Deep_Residual_Learning_CVPR_2016_paper.html  
+[5] [Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. *Deep residual learning for image recognition.* In CVPR, 2016.](https://www.cv-foundation.org/openaccess/content_cvpr_2016/papers/He_Deep_Residual_Learning_CVPR_2016_paper.pdf))  
 
-[6] Nitish Srivastava, Geoffrey Hinton, Alex Krizhevsky, Ilya Sutskever, and Ruslan Salakhutdinov. *Dropout: A simple way to prevent neural networks from overfitting.* Journal of Machine Learning Research, 15(1):1929–1958 (2014).  
-> http://jmlr.org/papers/v15/srivastava14a.html  
+[6] [Nitish Srivastava, Geoffrey Hinton, Alex Krizhevsky, Ilya Sutskever, and Ruslan Salakhutdinov. *Dropout: A simple way to prevent neural networks from overfitting.* Journal of Machine Learning Research, 15(1):1929–1958 (2014).](https://jmlr.org/papers/volume15/srivastava14a/srivastava14a.pdf)  
 
-[7] Ozan Oktay, Jo Schlemper, Loïc Le Folgoc, Matthew Lee, Mattias P. Heinrich, Kazunari Misawa, Kensaku Mori, Steven McDonagh, Nils Y. Hammerla, Bernhard Kainz, Ben Glocker, and Daniel Rueckert. *Attention U-Net: Learning where to look for the pancreas.* arXiv preprint arXiv:1804.03999 (2018).  
-> https://arxiv.org/abs/1804.03999  
+[7] [Ozan Oktay, Jo Schlemper, Loïc Le Folgoc, Matthew Lee, Mattias P. Heinrich, Kazunari Misawa, Kensaku Mori, Steven McDonagh, Nils Y. Hammerla, Bernhard Kainz, Ben Glocker, and Daniel Rueckert. *Attention U-Net: Learning where to look for the pancreas.* arXiv preprint arXiv:1804.03999 (2018).](https://arxiv.org/abs/1804.03999)  
 
-[8] Chen-Yu Lee, Saining Xie, Patrick Gallagher, Zhengyou Zhang, and Zhuowen Tu. *Deeply-supervised nets.* In AISTATS (2015).  
-> https://proceedings.mlr.press/v38/lee15.html  
+[8] [Chen-Yu Lee, Saining Xie, Patrick Gallagher, Zhengyou Zhang, and Zhuowen Tu. *Deeply-supervised nets.* In AISTATS (2015). ](https://arxiv.org/abs/1409.5185)  
 
-[9] Bastian H. Menze, András Jakab, Stefan Bauer, Jayashree Kalpathy-Cramer, Keyvan Farahani, John Kirby, Yvette Burren, Nicolas Porz, Jens Slotboom, Roland Wiest, and Koen van Leemput. *The multimodal brain tumor image segmentation benchmark (BRATS).* IEEE Transactions on Medical Imaging, 34(10):1993–2024 (2015).  
-> https://ieeexplore.ieee.org/document/7068013  
+[9] [Bastian H. Menze, András Jakab, Stefan Bauer, Jayashree Kalpathy-Cramer, Keyvan Farahani, John Kirby, Yvette Burren, Nicolas Porz, Jens Slotboom, Roland Wiest, and Koen van Leemput. *The multimodal brain tumor image segmentation benchmark (BRATS).* IEEE Transactions on Medical Imaging, 34(10):1993–2024 (2015).](https://pmc.ncbi.nlm.nih.gov/articles/PMC4833122/)
 
-[10] Yuxin Wu and Kaiming He. *Group normalization.* In ECCV, 2018.  
-> https://arxiv.org/abs/1803.08494  
+[10] [Yuxin Wu and Kaiming He. *Group normalization.* In ECCV, 2018.](https://arxiv.org/abs/1803.08494)  
 
-[11] Jie Hu, Li Shen, and Gang Sun. *Squeeze-and-excitation networks.* In CVPR, 2018, pages 7132–7141.  
-> https://openaccess.thecvf.com/content_cvpr_2018/html/Hu_Squeeze-and-Excitation_Networks_CVPR_2018_paper.html  
-18.
+[11] [Jie Hu, Li Shen, and Gang Sun. *Squeeze-and-excitation networks.* In CVPR, 2018, pages 7132–7141.](https://openaccess.thecvf.com/content_cvpr_2018/papers/Hu_Squeeze-and-Excitation_Networks_CVPR_2018_paper.pdf) 
+
+[12] [Fabian Isensee, Paul F. Jaeger, Peter M. Full, Philipp Voll-muth, and Klaus H. Maier-Hein. nnu-net for brain tumor segmentation, 2020.](https://arxiv.org/abs/2011.00848)
 
 
 Note: This implementation is designed for educational purposes under GPU memory constraints. Performance is not expected to match state-of-the-art methods.
